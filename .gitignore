@@ -37,6 +37,11 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
+scaler.joblib
+pca.joblib
+blood_classifier.joblib
+kvasir_dataset-v2/
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
