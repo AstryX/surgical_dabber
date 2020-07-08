@@ -71,7 +71,7 @@ def extractNeighbourFeatures(im_array, should_use_neighbours, should_exclude_thr
     tolerance_removal_count = 0
     center_slot = 0
     if should_use_neighbours == True:
-        center_slot = (one_pixel_features * pixel_neighbourhood_size + one_pixel_features)
+        center_slot = int(one_pixel_features * pixel_neighbourhood_size + one_pixel_features)
     inclusion_mask = np.ones((len(im_array))*image_size_rows*image_size_cols)
     track_pixel = -1
     for it in im_array:
@@ -84,15 +84,15 @@ def extractNeighbourFeatures(im_array, should_use_neighbours, should_exclude_thr
                 if should_use_neighbours == True:
                     cur_pixel_features = np.negative(np.ones(num_pixel_features))
                     for it_i in range(pixel_neighbourhood_size):
-                        cur_i = pixel_i + it_i - neighbourhood_step
+                        cur_i = int(pixel_i + it_i - neighbourhood_step)
                         if cur_i < 0 or cur_i > (image_size_rows - 1):
                             continue
                         for it_j in range(pixel_neighbourhood_size):
-                            cur_j = pixel_j + it_j - neighbourhood_step
+                            cur_j = int(pixel_j + it_j - neighbourhood_step)
                             if cur_j < 0 or cur_j > (image_size_cols - 1):
                                 continue
-                            cur_slot = (one_pixel_features * it_i 
-                                * pixel_neighbourhood_size + one_pixel_features * it_j)
+                            cur_slot = int((one_pixel_features * it_i 
+                                * pixel_neighbourhood_size + one_pixel_features * it_j))
                             for it_z in range(one_pixel_features):
                                 cur_feature = it[cur_i][cur_j][it_z]
                                 cur_pixel_features[cur_slot + it_z] = cur_feature  
