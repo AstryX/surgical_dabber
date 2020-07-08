@@ -93,10 +93,12 @@ with open(param_name) as json_data_file:
 
   
 def computeAndDisplayContours(print_text, passed_mask, draw_image, remove_small):
+    final_contours = None
     temp_image = np.copy(draw_image)
     gray_mask = cv2.cvtColor(passed_mask, cv2.COLOR_BGR2GRAY)
     print(print_text)
     contours, hierarchy = cv2.findContours(gray_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[-2:]
+    final_contours = contours
     cv2.drawContours(temp_image, contours, -1, (0,0,255), cv2.FILLED)
     dual_image = np.concatenate((draw_image, temp_image), axis=1)
     predicted_final = np.copy(draw_image)
@@ -120,22 +122,12 @@ def computeAndDisplayContours(print_text, passed_mask, draw_image, remove_small)
         predicted_final[:,:,1] = 0
         predicted_final[:,:,2] = 0
         cv2.drawContours(predicted_final, new_contours, -1, (0,0,255), cv2.FILLED)
-        
-        '''predicted_final = np.copy(draw_image)
-        predicted_final[:,:,0] = 0
-        predicted_final[:,:,1] = 0
-        predicted_final[:,:,2] = 0
-        cv2.drawContours(predicted_final, new_contours, -1, (0,0,255), cv2.FILLED)
-        cv2.imshow(print_text, predicted_final) 
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()'''
-    
-    print('Contour shape:')
-    print(dual_image.shape)
+        final_contours = new_contours
+
     cv2.imshow(print_text, dual_image) 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    return predicted_final
+    return predicted_final, final_contours
     
 if bool_add_neighbourhoods == True:
     dim_red_features = dim_red_features_neighbour
@@ -215,7 +207,7 @@ if bool_should_mask_hue == True:
 
 pred_image = cv2.cvtColor(full_image, cv2.COLOR_RGB2BGR)
 inverted_mask = cv2.bitwise_not(mask_image)
-_ = computeAndDisplayContours('Finding contours of the ground-truth blood labels', inverted_mask, pred_image, True)
+_, _ = computeAndDisplayContours('Finding contours of the ground-truth blood labels', inverted_mask, pred_image, True)
 
 # Erode the image
 smoothing_kernel = np.ones((5, 5), np.uint8)
@@ -240,7 +232,7 @@ for i in range(len(pred_labels)):
         predicted_mask[trunc_x,trunc_y,1] = 255
         predicted_mask[trunc_x,trunc_y,2] = 255
         
-_ = computeAndDisplayContours('Finding contours for initial predicted pixels', predicted_mask, pred_image, True)
+_, _ = computeAndDisplayContours('Finding contours for initial predicted pixels', predicted_mask, pred_image, True)
 
 #Predicted morphology
 print('Closing -> Opening predicted pixels')
@@ -258,7 +250,7 @@ for pixel_i in range(len(opening_pred)):
         else:
             morph_pred_labels.append(0)
              
-final_y_pred_image = computeAndDisplayContours('Finding contours for morphologically changed predicted pixels', opening_pred, pred_image, True) 
+final_y_pred_image, final_contours = computeAndDisplayContours('Finding contours for morphologically changed predicted pixels', opening_pred, pred_image, True)
 
 final_y_pred_labels = np.zeros(len(mask_labels))
 track_pos = -1
@@ -292,25 +284,19 @@ print('New before after shapes')
 print(before_z.shape)
 print(after_z.shape)
 
-#Getting contours for the main image
-temp_image = np.copy(pred_image)
-gray_mask = cv2.cvtColor(opening_pred, cv2.COLOR_BGR2GRAY)
-contours, hierarchy = cv2.findContours(gray_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[-2:]
-
 print('Final contours shape')
-print((np.array((contours))).shape)
+print((np.array((final_contours))).shape)
 
 top_pool_id = 0
 top_pool_volume = 0
 top_pool_deepest_point_id = 0
 
-temp_image_pool = np.copy(gray_mask)
-for k in range(len(contours)):
+for k in range(len(final_contours)):
     contours_temp = np.copy(pred_image)
     contours_temp[:,:,0] = 0
     contours_temp[:,:,1] = 0
     contours_temp[:,:,2] = 0
-    cv2.drawContours(contours_temp, np.array(([contours[k]])), -1, (0,0,255), cv2.FILLED)
+    cv2.drawContours(contours_temp, np.array(([final_contours[k]])), -1, (0,0,255), cv2.FILLED)
     contours_pred_labels = np.zeros(len(mask_labels))
     
     track_pos = -1
@@ -344,7 +330,7 @@ print('Most volume contour deepest point ' + str(top_pool_deepest_point_id))
 print('Drawing the deepest pool...')
 
 temp_image = np.copy(pred_image)
-cv2.drawContours(temp_image, np.array(([contours[top_pool_id]])), -1, (0,0,255), cv2.FILLED)
+cv2.drawContours(temp_image, np.array(([final_contours[top_pool_id]])), -1, (0,0,255), cv2.FILLED)
 cv2.imshow('Blood pool with the highest volume drawing', temp_image) 
 cv2.waitKey(0)
 cv2.destroyAllWindows()
