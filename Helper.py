@@ -156,7 +156,7 @@ def extractMaskLabels(mask_images, image_features, inclusion_mask):
     return [np.array((mask_labels)), np.array((blood_data)), np.array((nonblood_data)), 
         np.array((blood_labels)), np.array((nonblood_labels))]
         
-def loadPointCloud(path, image_size_rows, image_size_cols):
+def loadPointCloud(path):
     cur_cloud = pypcd.PointCloud.from_path(path)
     pcd_data = cur_cloud.pc_data
     return pcd_data
