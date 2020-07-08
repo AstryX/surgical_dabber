@@ -115,6 +115,12 @@ def computeAndDisplayContours(print_text, passed_mask, draw_image, remove_small)
         cv2.drawContours(temp_image_pool, new_contours, -1, (0,0,255), cv2.FILLED)
         dual_image = np.concatenate((dual_image, temp_image_pool), axis=1)
         
+        predicted_final = np.copy(draw_image)
+        predicted_final[:,:,0] = 0
+        predicted_final[:,:,1] = 0
+        predicted_final[:,:,2] = 0
+        cv2.drawContours(predicted_final, new_contours, -1, (0,0,255), cv2.FILLED)
+        
         '''predicted_final = np.copy(draw_image)
         predicted_final[:,:,0] = 0
         predicted_final[:,:,1] = 0
@@ -279,8 +285,8 @@ print('Before and after shape after cloud loading:')
 print(before.shape)
 print(after.shape)
 
-before_z = before[:,2]
-after_z = after[:,2]
+before_z = before['z']
+after_z = after['z']
 
 print('New before after shapes')
 print(before_z.shape)

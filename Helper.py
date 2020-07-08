@@ -158,9 +158,6 @@ def extractMaskLabels(mask_images, image_features, inclusion_mask):
         
 def loadPointCloud(path, image_size_rows, image_size_cols):
     cur_cloud = pypcd.PointCloud.from_path(path)
-    
-    pcd_array = cur_cloud.pc_data.view(np.int).reshape(cur_cloud.pc_data.shape + (-1,))
-    xyz_2d = np.reshape(pcd_array, (image_size_rows*image_size_cols, 3))
-    
-    return xyz_2d
+    pcd_data = cur_cloud.pc_data
+    return pcd_data
     
