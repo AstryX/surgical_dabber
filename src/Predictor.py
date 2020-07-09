@@ -12,7 +12,7 @@ from Helper import readImagesAndMasks, extractColourFeatures
 from Helper import extractNeighbourFeatures, extractMaskLabels
 from Helper import loadPointCloud
 
-def computeAndDisplayContours(print_text, passed_mask, draw_image, remove_small, bool_display_all_contours):
+def computeAndDisplayContours(print_text, passed_mask, draw_image, remove_small, bool_display_all_contours, pool_area_threshold):
     final_contours = None
     temp_image = np.copy(draw_image)
     gray_mask = cv2.cvtColor(passed_mask, cv2.COLOR_BGR2GRAY)
@@ -88,7 +88,7 @@ def displayNormalization(pred_features, image_size_rows, image_size_cols, full_i
     cv2.waitKey(0)
     cv2.destroyAllWindows()    
     
-def predictImageLabels(params_path, pred_image):
+def predictImageLabels(params_path, pred_image, im_path, base_path):
     #Default parameter values
     image_size_rows = 250
     image_size_cols = 330
@@ -111,11 +111,11 @@ def predictImageLabels(params_path, pred_image):
 
     pixel_neighbourhood_size = 3
     neighbourhood_step = math.floor(pixel_neighbourhood_size / 2)
-    im_path = "./Dataset/Processed/"
+    im_path = im_path
     predict_num = pred_image
-    classifier_name = "blood_classifier.joblib"
-    pca_name = "pca.joblib"
-    scaler_name = "scaler.joblib"
+    classifier_name = base_path+"blood_classifier.joblib"
+    pca_name = base_path+"pca.joblib"
+    scaler_name = base_path+"scaler.joblib"
     #~~~~~~~~~~~~~ Default values finish
 
     with open(params_path) as json_data_file:
@@ -157,14 +157,12 @@ def predictImageLabels(params_path, pred_image):
         if 'pixel_neighbourhood_size' in data:
             pixel_neighbourhood_size = data['pixel_neighbourhood_size']
             neighbourhood_step = math.floor(pixel_neighbourhood_size / 2)
-        if 'im_path' in data:
-            im_path = data['im_path']
         if 'classifier_name' in data:
-            classifier_name = data['classifier_name']
+            classifier_name = base_path+data['classifier_name']
         if 'pca_name' in data:
-            pca_name = data['pca_name']
+            pca_name = base_path+data['pca_name']
         if 'scaler_name' in data:
-            scaler_name = data['scaler_name']    
+            scaler_name = base_path+data['scaler_name']
     
     if bool_add_neighbourhoods == True:
         dim_red_features = dim_red_features_neighbour   
@@ -209,14 +207,14 @@ def predictImageLabels(params_path, pred_image):
     
     if bool_display_all_contours == True:
         _, _ = computeAndDisplayContours('Finding contours of the ground-truth blood labels', 
-            inverted_mask, pred_image, True, bool_display_all_contours)
+            inverted_mask, pred_image, True, bool_display_all_contours, pool_area_threshold)
 
     '''print('Closing -> Opening ground-truth pixels')
     #Ground truth morphology
     closing = cv2.morphologyEx(inverted_mask, cv2.MORPH_CLOSE, smoothing_kernel)
     opening = cv2.morphologyEx(closing, cv2.MORPH_OPEN, smoothing_kernel)
 
-    computeAndDisplayContours('Finding contours for morphologically changed ground-truth pixels', opening, pred_image, True)
+    computeAndDisplayContours('Finding contours for morphologically changed ground-truth pixels', opening, pred_image, True, pool_area_threshold)
     '''
 
     predicted_mask = np.copy(inverted_mask)
@@ -234,7 +232,7 @@ def predictImageLabels(params_path, pred_image):
     
     if bool_display_all_contours == True:
         _, _ = computeAndDisplayContours('Finding contours for initial predicted pixels',
-            predicted_mask, pred_image, True, bool_display_all_contours)
+            predicted_mask, pred_image, True, bool_display_all_contours, pool_area_threshold)
 
     #Predicted morphology
     print('Closing -> Opening predicted pixels')
@@ -253,7 +251,7 @@ def predictImageLabels(params_path, pred_image):
                 morph_pred_labels.append(0)
                  
     final_y_pred_image, final_contours = computeAndDisplayContours('Finding contours for morphologically changed predicted pixels', 
-        opening_pred, pred_image, True, bool_display_all_contours)
+        opening_pred, pred_image, True, bool_display_all_contours, pool_area_threshold)
 
     final_y_pred_labels = np.zeros(len(mask_labels))
     track_pos = -1
@@ -269,7 +267,7 @@ def predictImageLabels(params_path, pred_image):
     
     return final_y_pred_labels, final_contours, pred_image
 
-def findOptimalDestination(before_z, after_z, image_size_rows, image_size_cols, final_y_pred_labels, final_contours, pred_image)
+def findOptimalDestination(before_z, after_z, image_size_rows, image_size_cols, final_y_pred_labels, final_contours, pred_image):
     print('Beginning point cloud experimentation...')
     print('Final contours shape')
     print((np.array((final_contours))).shape)

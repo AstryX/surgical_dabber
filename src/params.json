@@ -26,7 +26,7 @@
     "bool_display_all_contours":false,
 
     "pixel_neighbourhood_size":3,
-    "im_path":"./Dataset/Processed/",
+    "im_path":"Dataset/Processed/",
     "classifier_name":"blood_classifier.joblib",
     "pca_name":"pca.joblib",
     "scaler_name":"scaler.joblib",
