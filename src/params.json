@@ -1,7 +1,7 @@
 {
     "num_img":200,
     "fold_count":5,
-    "num_label_data":750000,
+    "num_label_data":400000,
     "percentage_data":0.035,
     "image_size_rows":250,
     "image_size_cols":330,
