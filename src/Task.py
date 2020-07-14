@@ -8,6 +8,7 @@ import geometry_msgs.msg
 
 import json
 import math
+import time
 from Predictor import predictImageLabels, findOptimalDestination
 from Helper import loadPointCloud
 
@@ -22,9 +23,10 @@ display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path
 
 ros_path = "./src/surgical_dabber/src/"
 params_path = ros_path+"params.json"
-predict_num = 161
+predict_num = 200
 image_size_rows = 250
 image_size_cols = 330
+bool_display_final_contour = True
 im_path = ros_path + "Dataset/Processed/"
 
 with open(params_path) as json_data_file:  
@@ -37,6 +39,8 @@ with open(params_path) as json_data_file:
         image_size_cols = data['image_size_cols']
     if 'im_path' in data:
         im_path = ros_path + data['im_path']
+    if 'bool_display_final_contour' in data:
+        bool_display_final_contour = data['bool_display_final_contour']
 
 before_path = im_path+'pc_mock/before.PCD'
 after_path = im_path+'pc_mock/after.PCD'
@@ -50,9 +54,13 @@ print(after.shape)
 before_z = before['z']
 after_z = after['z']
 
+time_benchmark = time.time()
 pred_labels, final_contours, loaded_image = predictImageLabels(params_path, predict_num, im_path, ros_path)
+print("Run time of Image pixel prediction: " + str(time.time() - time_benchmark) + " seconds.")
+time_benchmark = time.time()
 top_pool_id, top_pool_deepest_point_id, top_pool_volume = findOptimalDestination(before_z, after_z,
-    image_size_rows, image_size_cols, pred_labels, final_contours, loaded_image)
+    image_size_rows, image_size_cols, pred_labels, final_contours, loaded_image, bool_display_final_contour)
+print("Run time of Optimal Dab Destination computation: " + str(time.time() - time_benchmark) + " seconds.")
     
 max_range_x = 1.0
 max_range_y = 1.0

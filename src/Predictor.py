@@ -108,6 +108,7 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
     bool_exclude_border_pixels = True
     bool_do_normalization_display = False
     bool_display_all_contours = True
+    bool_remove_small_pools = True
 
     pixel_neighbourhood_size = 3
     neighbourhood_step = math.floor(pixel_neighbourhood_size / 2)
@@ -154,6 +155,8 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
             bool_do_normalization_display = data['bool_do_normalization_display']
         if 'bool_display_all_contours' in data:
             bool_display_all_contours = data['bool_display_all_contours']
+        if 'bool_remove_small_pools' in data:
+            bool_remove_small_pools = data['bool_remove_small_pools']
         if 'pixel_neighbourhood_size' in data:
             pixel_neighbourhood_size = data['pixel_neighbourhood_size']
             neighbourhood_step = math.floor(pixel_neighbourhood_size / 2)
@@ -207,14 +210,14 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
     
     if bool_display_all_contours == True:
         _, _ = computeAndDisplayContours('Finding contours of the ground-truth blood labels', 
-            inverted_mask, pred_image, True, bool_display_all_contours, pool_area_threshold)
+            inverted_mask, pred_image, bool_remove_small_pools, bool_display_all_contours, pool_area_threshold)
 
     '''print('Closing -> Opening ground-truth pixels')
     #Ground truth morphology
     closing = cv2.morphologyEx(inverted_mask, cv2.MORPH_CLOSE, smoothing_kernel)
     opening = cv2.morphologyEx(closing, cv2.MORPH_OPEN, smoothing_kernel)
 
-    computeAndDisplayContours('Finding contours for morphologically changed ground-truth pixels', opening, pred_image, True, pool_area_threshold)
+    computeAndDisplayContours('Finding contours for morphologically changed ground-truth pixels', opening, pred_image, bool_remove_small_pools, pool_area_threshold)
     '''
 
     predicted_mask = np.copy(inverted_mask)
@@ -232,7 +235,7 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
     
     if bool_display_all_contours == True:
         _, _ = computeAndDisplayContours('Finding contours for initial predicted pixels',
-            predicted_mask, pred_image, True, bool_display_all_contours, pool_area_threshold)
+            predicted_mask, pred_image, bool_remove_small_pools, bool_display_all_contours, pool_area_threshold)
 
     #Predicted morphology
     print('Closing -> Opening predicted pixels')
@@ -251,7 +254,7 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
                 morph_pred_labels.append(0)
                  
     final_y_pred_image, final_contours = computeAndDisplayContours('Finding contours for morphologically changed predicted pixels', 
-        opening_pred, pred_image, True, bool_display_all_contours, pool_area_threshold)
+        opening_pred, pred_image, bool_remove_small_pools, bool_display_all_contours, pool_area_threshold)
 
     final_y_pred_labels = np.zeros(len(mask_labels))
     track_pos = -1
@@ -267,7 +270,7 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
     
     return final_y_pred_labels, final_contours, pred_image
 
-def findOptimalDestination(before_z, after_z, image_size_rows, image_size_cols, final_y_pred_labels, final_contours, pred_image):
+def findOptimalDestination(before_z, after_z, image_size_rows, image_size_cols, final_y_pred_labels, final_contours, pred_image, bool_display_final_contour):
     print('Beginning point cloud experimentation...')
     print('Final contours shape')
     print((np.array((final_contours))).shape)
@@ -316,10 +319,12 @@ def findOptimalDestination(before_z, after_z, image_size_rows, image_size_cols, 
 
     temp_image = np.copy(pred_image)
     cv2.drawContours(temp_image, np.array(([final_contours[top_pool_id]])), -1, (0,0,255), cv2.FILLED)
-    cv2.imshow('Blood pool with the highest volume drawing', temp_image) 
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    
+
+    if bool_display_final_contour == True:
+        cv2.imshow('Blood pool with the highest volume drawing', temp_image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
     return top_pool_id, top_pool_deepest_point_id, top_pool_volume
         
 

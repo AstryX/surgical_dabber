@@ -126,7 +126,6 @@ def extractMaskLabels(mask_images, image_features, inclusion_mask):
     nonblood_data = []
     blood_labels = []
     nonblood_labels = []
-    pred_real_labels = []
     track_id = 0
     track_pixel = -1
     track_accepted_pixels = 0
