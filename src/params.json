@@ -1,7 +1,7 @@
 {
-    "num_img":200,
+    "num_img":50,
     "fold_count":5,
-    "num_label_data":400000,
+    "num_label_data":100000,
     "percentage_data":0.035,
     "image_size_rows":250,
     "image_size_cols":330,
@@ -30,5 +30,5 @@
     "classifier_name":"blood_classifier.joblib",
     "pca_name":"pca.joblib",
     "scaler_name":"scaler.joblib",
-    "predict_num":161
+    "predict_num":200
 }

@@ -5,6 +5,8 @@ from sklearn.metrics import confusion_matrix
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.naive_bayes import GaussianNB
+#from sklearn.ensemble import BaggingClassifier
+from sklearn.ensemble import RandomForestClassifier
 import matplotlib.pyplot as plt
 import umap
 import cv2
@@ -15,6 +17,7 @@ import time
 import json
 from Helper import readImagesAndMasks, extractColourFeatures
 from Helper import extractNeighbourFeatures, extractMaskLabels
+
 
 #Default parameter values
 num_img = 41
@@ -439,7 +442,14 @@ if ((bool_add_neighbourhoods == False) and (bool_do_pca_separately==True)):
 clf = None  
   
 if bool_use_bayes == False:
-    clf = svm.SVC(C=3.0,kernel='rbf',verbose=True, class_weight='balanced')
+    #clf = svm.LinearSVC(C=3.0, random_state=0, verbose=True, tol=1e-5, class_weight='balanced')
+    
+    clf = RandomForestClassifier(n_estimators=200, random_state=0, n_jobs=7, class_weight='balanced', verbose=True)
+    
+    #clf = svm.SVC(C=3.0,kernel='rbf',verbose=True, class_weight='balanced')
+    
+    #n_estimators = 8 #Number of threads
+    #clf = BaggingClassifier(svm.SVC(C=3.0,kernel='rbf', probability=True, class_weight='balanced'), max_samples=1.0 / n_estimators, n_estimators=n_estimators)
 else:
     clf = GaussianNB()
 
