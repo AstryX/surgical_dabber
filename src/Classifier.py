@@ -137,13 +137,13 @@ t = time.time()
     
 im_array, mask_images = readImagesAndMasks(im_path, num_img, False)
 singular_features = extractColourFeatures(im_array, hsv_wrap_amount)
+del im_array
 image_features, inclusion_mask = extractNeighbourFeatures(singular_features, bool_add_neighbourhoods, True,
     one_pixel_features, pixel_neighbourhood_size, num_pixel_features, hsv_v_index,
     image_size_rows, image_size_cols, neighbourhood_step, hsv_v_tolerance, bool_exclude_border_pixels)
+del singular_features
 mask_labels, blood_data, nonblood_data, blood_labels, nonblood_labels = extractMaskLabels(mask_images, image_features, inclusion_mask)
 
-np.random.shuffle(blood_data)
-np.random.shuffle(nonblood_data)
 print('Blood dimensions:')
 print(blood_data.shape)
 print('Non-blood dimensions:')
@@ -152,6 +152,14 @@ print('Feature dimensions:')
 print(image_features.shape)
 print('Mask dimensions:')
 print(mask_labels.shape)
+
+del mask_images
+del inclusion_mask
+del image_features
+
+np.random.shuffle(blood_data)
+np.random.shuffle(nonblood_data)
+
 
 blood_ratio = num_label_data
 nonblood_ratio = num_label_data
@@ -207,9 +215,17 @@ if bool_add_neighbourhoods == False:
 
     fig.tight_layout()
     plt.show()
+    
+del blood_data
+del nonblood_data
+del blood_labels
+del nonblood_labels
 
 print('Splitting into train and test sets!')
 X_train, X_test, y_train, y_test = train_test_split(data_set, data_set_y, test_size=0.2, random_state=0)
+
+del data_set
+del data_set_y
 
 print('Scaling data by removing mean and normalizing by std!')
 #scaler = StandardScaler(with_std=False)
@@ -454,7 +470,7 @@ else:
     clf = GaussianNB()
 
 print('Computing ' + str(fold_count) + '-fold crossvalidation scores!')
-scores = cross_val_score(clf, X_train, y_train, cv=fold_count, scoring='f1_macro', verbose=7, n_jobs=8)
+scores = cross_val_score(clf, X_train, y_train, cv=fold_count, scoring='f1_macro', verbose=7, n_jobs=-1)
 print('Fitting a fully trained model!')
 clf.fit(X_train, y_train)
 y_pred = clf.predict(X_test)
