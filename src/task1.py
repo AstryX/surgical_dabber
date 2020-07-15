@@ -52,7 +52,7 @@ def plan_to_goal(x, y, z, cur_group):
     plan = cur_group.plan()
     return plan, pose_goal
     
-def check_if_goal_reached(pose_goal, cur_group, tolerance)
+def check_if_goal_reached(pose_goal, cur_group, tolerance):
     pose_goal_arr = pose_to_list(pose_goal)
     cur_pose = pose_to_list(cur_group.get_current_pose().pose)
 
@@ -98,13 +98,13 @@ print(robot.get_group_names())
 print("Robot state:")
 print(robot.get_current_state())
 
-insert_box(0, 0, 0.5, 0.5, 0.5, 0.2, scene, "ceiling", robot.get_plpanning_frame()):
-insert_box(0, 0, -0.9, 1.0, 1.0, 0.05, scene, "floor", robot.get_planning_frame()):
-insert_box(-1.15, 0.5, -0.4, 0.15, 0.25, 0.4, scene, "surgeon_body", robot.get_planning_frame()):
-insert_box(-1.15, 0.5, -0.15, 0.1, 0.1, 0.1, scene, "surgeon_head", robot.get_planning_frame()):
-insert_box(-1.0, 0.15, -0.4, 0.3, 0.1, 0.1, scene, "surgeon_left_arm", robot.get_planning_frame()):
-insert_box(-1.0, 0.85, -0.4, 0.3, 0.1, 0.1, scene, "surgeon_right_arm", robot.get_planning_frame()):
-insert_box(0, 0, 0.175, 0.025, 0.025, 0.175, scene, "dab", blue_group.get_end_effector_link()):
+insert_box(0, 0, 0.4, 0.75, 0.75, 0.1, scene, "ceiling", robot.get_planning_frame())
+insert_box(0, 0, -0.76, 2.0, 2.0, 0.01, scene, "floor", robot.get_planning_frame())
+insert_box(-1.15, 0.5, -0.5, 0.25, 0.4, 0.6, scene, "surgeon_body", robot.get_planning_frame())
+insert_box(-1.15, 0.5, -0.1, 0.15, 0.2, 0.2, scene, "surgeon_head", robot.get_planning_frame())
+insert_box(-1.0, 0.25, -0.4, 0.4, 0.15, 0.15, scene, "surgeon_left_arm", robot.get_planning_frame())
+insert_box(-1.0, 0.75, -0.4, 0.4, 0.15, 0.15, scene, "surgeon_right_arm", robot.get_planning_frame())
+insert_box(0, 0, 0.2, 0.025, 0.025, 0.2, scene, "dab", blue_group.get_end_effector_link())
 rospy.sleep(1)
 
 
@@ -116,7 +116,7 @@ print("Planning frame name: " + str(blue_group.get_planning_frame()))
 print("Endeffector link name: " + str(blue_group.get_end_effector_link()))
 display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path', moveit_msgs.msg.DisplayTrajectory, queue_size=20)
 
-plan_1, plan_1_pose = plan_to_goal(0.7, -0.5, -0.5, blue_group)
+plan_1, plan_1_pose = plan_to_goal(0.7, -0.5, -0.4, blue_group)
 blue_group.go(wait=True)
 
 blue_group.stop()
@@ -125,5 +125,5 @@ blue_group.clear_pose_targets()
 has_reached = check_if_goal_reached(plan_1_pose, blue_group, 0.01)
 
 while not rospy.is_shutdown():
-    map_pub.publish(marker_array)
+    map_pub.publish(destination_marker)
     rospy.sleep(0.01)
