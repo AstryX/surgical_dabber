@@ -20,6 +20,16 @@ def insert_box(x, y, z, scale_x, scale_y, scale_z, cur_scene, obs_name, frame_id
     box_name = obs_name
     cur_scene.add_box(box_name, box_pose, size=(scale_x, scale_y, scale_z))    
     
+def insert_mesh(x, y, z, scale_x, scale_y, scale_z, cur_scene, mesh_name, frame_id, mesh_path):
+    box_pose = geometry_msgs.msg.PoseStamped()
+    box_pose.header.frame_id = frame_id
+    box_pose.pose.position.x = x
+    box_pose.pose.position.y = y
+    box_pose.pose.position.z = z
+    box_pose.pose.orientation.w = 1.0
+    box_name = mesh_name
+    cur_scene.add_mesh(box_name, box_pose, mesh_path, size=(scale_x, scale_y, scale_z))    
+    
 def create_mesh_marker(x, y, z, scale_x, scale_y, scale_z, frame_id, mesh_path):
     marker_array = MarkerArray()
     marker = Marker()
@@ -104,7 +114,9 @@ insert_box(-1.15, 0.5, -0.5, 0.25, 0.4, 0.6, scene, "surgeon_body", robot.get_pl
 insert_box(-1.15, 0.5, -0.1, 0.15, 0.2, 0.2, scene, "surgeon_head", robot.get_planning_frame())
 insert_box(-1.0, 0.25, -0.4, 0.4, 0.15, 0.15, scene, "surgeon_left_arm", robot.get_planning_frame())
 insert_box(-1.0, 0.75, -0.4, 0.4, 0.15, 0.15, scene, "surgeon_right_arm", robot.get_planning_frame())
+#insert_box(0, 0, 0.2, 0.025, 0.025, 0.2, scene, "dab", blue_group.get_end_effector_link())
 insert_box(0, 0, 0.2, 0.025, 0.025, 0.2, scene, "dab", blue_group.get_end_effector_link())
+insert_mesh(dab_goal.position.x, dab_goal.position.y, dab_goal.position.z, 1.0, 1.0, 1.0, scene, "dab_mesh", robot.get_planning_frame(), 'package://scripts/dab.dae')
 rospy.sleep(1)
 
 
