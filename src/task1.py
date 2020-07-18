@@ -74,21 +74,22 @@ def check_if_goal_reached(pose_goal, cur_group, tolerance):
 
     print('Did robot reach goal within tolerance: ' + str(bool_reached_goal))
     return bool_reached_goal
+    
+location_dab = [0.0, 0.0, -0.3]
+location_idle = [1.1, 0.3, -0.5]
+location_disposal = [0.3, -1.1, -0.5]
+    
+ros_path = "./src/surgical_dabber/src/"
+params_path = ros_path+"params.json"
 
-idle_goal = geometry_msgs.msg.Pose()
-idle_goal.position.x = 0.0
-idle_goal.position.y = 0.0
-idle_goal.position.z = -0.2
-
-dab_goal = geometry_msgs.msg.Pose()
-dab_goal.position.x = 1.1
-dab_goal.position.y = 0.3
-dab_goal.position.z = -0.5
-
-disposal_goal = geometry_msgs.msg.Pose()
-disposal_goal.position.x = 0.3
-disposal_goal.position.y = -1.1
-disposal_goal.position.z = -0.5
+with open(params_path) as json_data_file:  
+    data = json.load(json_data_file)
+    if 'location_dab' in data:
+        location_dab = data['location_dab']
+    if 'location_idle' in data:
+        location_idle = data['location_idle']
+    if 'location_disposal' in data:
+        location_disposal = data['location_disposal']
     
 moveit_commander.roscpp_initialize(sys.argv)
 rospy.init_node('task1', anonymous=True)
@@ -132,15 +133,41 @@ print("Planning frame name: " + str(blue_group.get_planning_frame()))
 print("Endeffector link name: " + str(blue_group.get_end_effector_link()))
 display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path', moveit_msgs.msg.DisplayTrajectory, queue_size=20)
 
-plan_1, plan_1_pose = plan_to_goal(0.7, -0.5, -0.4, blue_group)
-
+plan_1, plan_1_pose = plan_to_goal(location_dab[0], location_dab[1], location_dab[2], blue_group)
 pose_goal_joints = blue_group.get_current_joint_values()
 
-
 blue_group.go(wait=True)
-
 blue_group.stop()
 blue_group.clear_pose_targets()
+
+rospy.sleep(1)
+
+plan_1, plan_1_pose = plan_to_goal(location_idle[0], location_idle[1], location_idle[2], blue_group)
+pose_goal_joints = blue_group.get_current_joint_values()
+
+blue_group.go(wait=True)
+blue_group.stop()
+blue_group.clear_pose_targets()
+
+rospy.sleep(1)
+
+plan_1, plan_1_pose = plan_to_goal(0.7, -0.5, -0.4, blue_group)
+pose_goal_joints = blue_group.get_current_joint_values()
+
+blue_group.go(wait=True)
+blue_group.stop()
+blue_group.clear_pose_targets()
+
+rospy.sleep(1)
+
+plan_1, plan_1_pose = plan_to_goal(location_disposal[0], location_disposal[1], location_disposal[2], blue_group)
+pose_goal_joints = blue_group.get_current_joint_values()
+
+blue_group.go(wait=True)
+blue_group.stop()
+blue_group.clear_pose_targets()
+
+
 pose_test_joints = blue_group.get_current_joint_values()
 print(pose_test_joints)
 has_reached = check_if_goal_reached(plan_1_pose, blue_group, 0.01)
