@@ -9,6 +9,7 @@ import visualization_msgs
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
 from moveit_commander.conversions import pose_to_list
+from math import pi
 
 def insert_box(x, y, z, scale_x, scale_y, scale_z, cur_scene, obs_name, frame_id):
     box_pose = geometry_msgs.msg.PoseStamped()
@@ -93,7 +94,12 @@ moveit_commander.roscpp_initialize(sys.argv)
 rospy.init_node('task1', anonymous=True)
 scene = moveit_commander.PlanningSceneInterface()
 robot = moveit_commander.RobotCommander()
-group_name = "ur10"
+
+print("Robot group frames list:")
+print(robot.get_group_names())
+print("Robot state:")
+print(robot.get_current_state())
+group_name = robot.get_group_names()[1]
 blue_group = moveit_commander.MoveGroupCommander(group_name)
 blue_group.set_planning_time(10.0)
 
@@ -103,25 +109,23 @@ destination_marker = create_mesh_marker(0.0, 0.0, -0.75, 1.0, 1.0, 1.0, robot.ge
 map_pub.publish(destination_marker)
 rospy.sleep(1)
 
-print("Robot group frames list:")
-print(robot.get_group_names())
-print("Robot state:")
-print(robot.get_current_state())
 
-insert_box(0, 0, 0.4, 0.75, 0.75, 0.1, scene, "ceiling", robot.get_planning_frame())
+
+insert_box(0, 0, 0.6, 0.75, 0.75, 0.1, scene, "ceiling", robot.get_planning_frame())
 insert_box(0, 0, -0.76, 2.0, 2.0, 0.01, scene, "floor", robot.get_planning_frame())
+#insert_box(1.3, -0.35, -0.5, 0.2, 0.2, 1.0, scene, "path_obstacle", robot.get_planning_frame())
 insert_box(-1.15, 0.5, -0.5, 0.25, 0.4, 0.6, scene, "surgeon_body", robot.get_planning_frame())
 insert_box(-1.15, 0.5, -0.1, 0.15, 0.2, 0.2, scene, "surgeon_head", robot.get_planning_frame())
 insert_box(-1.0, 0.25, -0.4, 0.4, 0.15, 0.15, scene, "surgeon_left_arm", robot.get_planning_frame())
 insert_box(-1.0, 0.75, -0.4, 0.4, 0.15, 0.15, scene, "surgeon_right_arm", robot.get_planning_frame())
 #insert_box(0, 0, 0.2, 0.025, 0.025, 0.2, scene, "dab", blue_group.get_end_effector_link())
 insert_box(0, 0, 0.2, 0.025, 0.025, 0.2, scene, "dab", blue_group.get_end_effector_link())
-insert_mesh(dab_goal.position.x, dab_goal.position.y, dab_goal.position.z, 1.0, 1.0, 1.0, scene, "dab_mesh", robot.get_planning_frame(), 'package://scripts/dab.dae')
+#insert_mesh(dab_goal.position.x, dab_goal.position.y, dab_goal.position.z, 1.0, 1.0, 1.0, scene, "dab_mesh", robot.get_planning_frame(), 'dab.stl')
 rospy.sleep(1)
 
 
 
-touch_links = robot.get_link_names(group='end_effector')
+touch_links = robot.get_link_names(group=robot.get_group_names()[0])
 scene.attach_box(blue_group.get_end_effector_link(), "dab", touch_links=touch_links)
 
 print("Planning frame name: " + str(blue_group.get_planning_frame()))
@@ -129,11 +133,16 @@ print("Endeffector link name: " + str(blue_group.get_end_effector_link()))
 display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path', moveit_msgs.msg.DisplayTrajectory, queue_size=20)
 
 plan_1, plan_1_pose = plan_to_goal(0.7, -0.5, -0.4, blue_group)
+
+pose_goal_joints = blue_group.get_current_joint_values()
+
+
 blue_group.go(wait=True)
 
 blue_group.stop()
 blue_group.clear_pose_targets()
-
+pose_test_joints = blue_group.get_current_joint_values()
+print(pose_test_joints)
 has_reached = check_if_goal_reached(plan_1_pose, blue_group, 0.01)
 
 while not rospy.is_shutdown():
