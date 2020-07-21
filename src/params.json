@@ -26,16 +26,15 @@
     "bool_display_all_contours":false,
     "bool_remove_small_pools":true,
     "bool_display_final_contour":false,
-    "bool_compress_predicted_pixels":true,
-    
-    "location_dab":[0.0,0.0,-0.3],
-    "location_idle":[1.1,0.3,-0.5],
-    "location_disposal":[0.3,-1.1,-0.5],
+    "bool_compress_predicted_pixels":false,
+
+    "location_idle":[0.0,0.0,-0.5],
+    "location_dab":[1.1,0.6,-0.45],
+    "location_disposal":[0.3,-0.9,-0.6],
 
     "pixel_neighbourhood_size":3,
     "im_path":"Dataset/Processed/",
     "classifier_name":"blood_classifier.joblib",
     "pca_name":"pca.joblib",
     "scaler_name":"scaler.joblib",
-    "predict_num":200
-}
+    "predict_num":198}

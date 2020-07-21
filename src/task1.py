@@ -9,7 +9,9 @@ import visualization_msgs
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
 from moveit_commander.conversions import pose_to_list
+import pyassimp
 from math import pi
+import json
 
 def insert_box(x, y, z, scale_x, scale_y, scale_z, cur_scene, obs_name, frame_id):
     box_pose = geometry_msgs.msg.PoseStamped()
@@ -75,8 +77,8 @@ def check_if_goal_reached(pose_goal, cur_group, tolerance):
     print('Did robot reach goal within tolerance: ' + str(bool_reached_goal))
     return bool_reached_goal
     
-location_dab = [0.0, 0.0, -0.3]
-location_idle = [1.1, 0.3, -0.5]
+location_idle = [0.0, 0.0, -0.5]
+location_dab = [1.1, 0.3, -0.5]
 location_disposal = [0.3, -1.1, -0.5]
     
 ros_path = "./src/surgical_dabber/src/"
@@ -112,7 +114,7 @@ rospy.sleep(1)
 
 
 
-insert_box(0, 0, 0.6, 0.75, 0.75, 0.1, scene, "ceiling", robot.get_planning_frame())
+#insert_box(0, 0, 0.6, 0.75, 0.75, 0.1, scene, "ceiling", robot.get_planning_frame())
 insert_box(0, 0, -0.76, 2.0, 2.0, 0.01, scene, "floor", robot.get_planning_frame())
 #insert_box(1.3, -0.35, -0.5, 0.2, 0.2, 1.0, scene, "path_obstacle", robot.get_planning_frame())
 insert_box(-1.15, 0.5, -0.5, 0.25, 0.4, 0.6, scene, "surgeon_body", robot.get_planning_frame())
@@ -120,29 +122,51 @@ insert_box(-1.15, 0.5, -0.1, 0.15, 0.2, 0.2, scene, "surgeon_head", robot.get_pl
 insert_box(-1.0, 0.25, -0.4, 0.4, 0.15, 0.15, scene, "surgeon_left_arm", robot.get_planning_frame())
 insert_box(-1.0, 0.75, -0.4, 0.4, 0.15, 0.15, scene, "surgeon_right_arm", robot.get_planning_frame())
 #insert_box(0, 0, 0.2, 0.025, 0.025, 0.2, scene, "dab", blue_group.get_end_effector_link())
-insert_box(0, 0, 0.2, 0.025, 0.025, 0.2, scene, "dab", blue_group.get_end_effector_link())
-#insert_mesh(dab_goal.position.x, dab_goal.position.y, dab_goal.position.z, 1.0, 1.0, 1.0, scene, "dab_mesh", robot.get_planning_frame(), 'dab.stl')
+#insert_box(0, 0, 0.2, 0.025, 0.025, 0.2, scene, "dab", blue_group.get_end_effector_link())
+insert_mesh(location_dab[0], location_dab[1], location_dab[2], 1.0, 1.0, 1.0, scene, "dab_mesh", robot.get_planning_frame(), './src/surgical_dabber/src/Dataset/Processed/dab.stl')
 rospy.sleep(1)
 
 
 
 touch_links = robot.get_link_names(group=robot.get_group_names()[0])
-scene.attach_box(blue_group.get_end_effector_link(), "dab", touch_links=touch_links)
+#scene.attach_box(blue_group.get_end_effector_link(), "dab", touch_links=touch_links)
+blue_group.allow_looking(True)
+blue_group.allow_replanning(True)
+blue_group.set_planning_time(30.0)
+blue_group.set_num_planning_attempts(8)
+print('Known constraints')
+print(blue_group.get_known_constraints())
+pose_start_joints = blue_group.get_current_joint_values()
+print('Start joints:')
+print(pose_start_joints)
+#blue_group.set_start_state_to_current_state()
 
 print("Planning frame name: " + str(blue_group.get_planning_frame()))
 print("Endeffector link name: " + str(blue_group.get_end_effector_link()))
 display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path', moveit_msgs.msg.DisplayTrajectory, queue_size=20)
 
-plan_1, plan_1_pose = plan_to_goal(location_dab[0], location_dab[1], location_dab[2], blue_group)
+#blue_group.pick("dab-mesh")
+plan_1, plan_1_pose = plan_to_goal(location_dab[0], location_dab[1], location_dab[2]+0.4, blue_group)
 pose_goal_joints = blue_group.get_current_joint_values()
 
-blue_group.go(wait=True)
-blue_group.stop()
-blue_group.clear_pose_targets()
+#blue_group.execute(plan_1, wait=True)
+#blue_group.stop()
+#blue_group.clear_pose_targets()
 
 rospy.sleep(1)
 
-plan_1, plan_1_pose = plan_to_goal(location_idle[0], location_idle[1], location_idle[2], blue_group)
+'''pose_test_joints = blue_group.get_current_joint_values()
+pose_test_joints[5] += 0.75
+print(pose_test_joints)
+
+blue_group.go(pose_test_joints, wait=True)
+blue_group.stop()
+blue_group.clear_pose_targets()
+
+rospy.sleep(1)'''
+
+
+'''plan_1, plan_1_pose = plan_to_goal(location_idle[0], location_idle[1], location_idle[2], blue_group)
 pose_goal_joints = blue_group.get_current_joint_values()
 
 blue_group.go(wait=True)
@@ -165,11 +189,8 @@ pose_goal_joints = blue_group.get_current_joint_values()
 
 blue_group.go(wait=True)
 blue_group.stop()
-blue_group.clear_pose_targets()
+blue_group.clear_pose_targets()'''
 
-
-pose_test_joints = blue_group.get_current_joint_values()
-print(pose_test_joints)
 has_reached = check_if_goal_reached(plan_1_pose, blue_group, 0.01)
 
 while not rospy.is_shutdown():

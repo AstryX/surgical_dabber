@@ -6,6 +6,7 @@ import numpy as np
 import math
 from joblib import load
 import json
+import time
 from statistics import mean
 from sklearn.metrics import confusion_matrix
 from Helper import readImagesAndMasks, extractColourFeatures
@@ -90,17 +91,17 @@ def displayNormalization(pred_features, image_size_rows, image_size_cols, full_i
 
 def compressPredictedNeighbourhoods(pred_features, image_size_rows, image_size_cols):
     mod_pred_features = []
-    num_compressed_cols = math.floor(image_size_cols / 3)
+    num_compressed_cols = int(math.floor(image_size_cols / 3))
     if ((image_size_cols % 3) == 2):
         num_compressed_cols += 1
         
-    num_compressed_rows = math.floor(image_size_rows / 3)
+    num_compressed_rows = int(math.floor(image_size_rows / 3))
     if ((image_size_rows % 3) == 2):
         num_compressed_rows += 1
         
     for i in range(num_compressed_rows):
         for j in range(num_compressed_cols):
-            cur_idx = (image_size_cols + 1) + 3*j + 3*image_size_cols*i
+            cur_idx = int((image_size_cols + 1) + 3*j + 3*image_size_cols*i)
             mod_pred_features.append(pred_features[cur_idx])
             
     return mod_pred_features, num_compressed_cols, num_compressed_rows
@@ -109,14 +110,14 @@ def compressPredictedNeighbourhoods(pred_features, image_size_rows, image_size_c
 def decompressPredictedNeighbourhoods(pred_labels, image_size_rows, image_size_cols, compressed_cols, compressed_rows): 
     reconstructed_labels = np.ones((image_size_rows*image_size_cols), np.uint8)
     labels_idx = 0
-    for i in range(num_compressed_rows):
-        for j in range(num_compressed_cols):
+    for i in range(compressed_rows):
+        for j in range(compressed_cols):
             if pred_labels[labels_idx] == 1:
-                cur_idx = (image_size_cols + 1) + 3*j + 3*image_size_cols*i
+                cur_idx = int((image_size_cols + 1) + 3*j + 3*image_size_cols*i)
                 #Center
                 reconstructed_labels[cur_idx] = 1
-                remainder = cur_idx % image_size_cols
-                divider = math.floor(cur_idx / image_size_cols)
+                remainder = int(cur_idx % image_size_cols)
+                divider = int(math.floor(cur_idx / image_size_cols))
                 
                 if divider > 0:
                     #Up
@@ -236,16 +237,26 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
     
     if bool_add_neighbourhoods == True:
         dim_red_features = dim_red_features_neighbour   
-        
+
+    time_preprocessing = time.time()
+    time_preprocessing_total = time_preprocessing
     full_image, mask_image = readImagesAndMasks(im_path, predict_num, True)
+    print('Image Reading Time Taken:' + str(time.time()-time_preprocessing) + ' seconds.')
+    time_preprocessing = time.time()
     singular_features = extractColourFeatures(full_image, hsv_wrap_amount)
+    print('Single Feature Extraction Time Taken:' + str(time.time()-time_preprocessing) + ' seconds.')
+    time_preprocessing = time.time()
     full_image = full_image[0]
     pred_features, inclusion_mask = extractNeighbourFeatures(singular_features, bool_add_neighbourhoods, False,
         one_pixel_features, pixel_neighbourhood_size, num_pixel_features, hsv_v_index,
         image_size_rows, image_size_cols, neighbourhood_step, hsv_v_tolerance, bool_exclude_border_pixels)
+    print('Neighbourhood Extraction Time Taken:' + str(time.time()-time_preprocessing) + ' seconds.')
+    time_preprocessing = time.time()
     dummy_inclusion_mask = np.ones(len(inclusion_mask))
     mask_labels, _, _, _, _ = extractMaskLabels(mask_image, pred_features, dummy_inclusion_mask)
     mask_image = mask_image[0]
+    print('Mask Extraction Time Taken:' + str(time.time()-time_preprocessing) + ' seconds.')
+    print('Total Preprocessing Time Taken:' + str(time.time()-time_preprocessing_total) + ' seconds.')
 
 
     clf = load(classifier_name) 
@@ -259,12 +270,16 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
         pred_features = dim_red_model.transform(pred_features)
         
     pred_labels = []
+    time_prediction = time.time()
     if bool_compress_predicted_pixels == True:
+        time_compression = time.time()
         compressed_features, compressed_cols, compressed_rows = compressPredictedNeighbourhoods(pred_features, image_size_rows, image_size_cols)
         pred_labels = clf.predict(compressed_features)
         pred_labels = decompressPredictedNeighbourhoods(pred_labels, image_size_rows, image_size_cols, compressed_cols, compressed_rows)
+        print('Total Compression Time Taken:' + str(time.time()-time_compression) + ' seconds.')
     else:
         pred_labels = clf.predict(pred_features)
+    print('Total Prediction Time Taken:' + str(time.time()-time_prediction) + ' seconds.')
         
     if ((bool_should_normalize == True) and (bool_do_normalization_display == True)):
         displayNormalization(pred_features, image_size_rows, image_size_cols, full_image)
