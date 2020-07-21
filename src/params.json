@@ -26,6 +26,7 @@
     "bool_display_all_contours":false,
     "bool_remove_small_pools":true,
     "bool_display_final_contour":false,
+    "bool_compress_predicted_pixels":true,
     
     "location_dab":[0.0,0.0,-0.3],
     "location_idle":[1.1,0.3,-0.5],

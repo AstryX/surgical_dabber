@@ -86,7 +86,71 @@ def displayNormalization(pred_features, image_size_rows, image_size_cols, full_i
     disp_combined = np.concatenate((temp_original/255, disp_combined), axis=1)
     cv2.imshow('Standardized blood image', disp_combined) 
     cv2.waitKey(0)
-    cv2.destroyAllWindows()    
+    cv2.destroyAllWindows()   
+
+def compressPredictedNeighbourhoods(pred_features, image_size_rows, image_size_cols):
+    mod_pred_features = []
+    num_compressed_cols = math.floor(image_size_cols / 3)
+    if ((image_size_cols % 3) == 2):
+        num_compressed_cols += 1
+        
+    num_compressed_rows = math.floor(image_size_rows / 3)
+    if ((image_size_rows % 3) == 2):
+        num_compressed_rows += 1
+        
+    for i in range(num_compressed_rows):
+        for j in range(num_compressed_cols):
+            cur_idx = (image_size_cols + 1) + 3*j + 3*image_size_cols*i
+            mod_pred_features.append(pred_features[cur_idx])
+            
+    return mod_pred_features, num_compressed_cols, num_compressed_rows
+        
+
+def decompressPredictedNeighbourhoods(pred_labels, image_size_rows, image_size_cols, compressed_cols, compressed_rows): 
+    reconstructed_labels = np.ones((image_size_rows*image_size_cols), np.uint8)
+    labels_idx = 0
+    for i in range(num_compressed_rows):
+        for j in range(num_compressed_cols):
+            if pred_labels[labels_idx] == 1:
+                cur_idx = (image_size_cols + 1) + 3*j + 3*image_size_cols*i
+                #Center
+                reconstructed_labels[cur_idx] = 1
+                remainder = cur_idx % image_size_cols
+                divider = math.floor(cur_idx / image_size_cols)
+                
+                if divider > 0:
+                    #Up
+                    reconstructed_labels[cur_idx-image_size_cols] = 1
+                    
+                if (divider < (image_size_rows-1)):
+                    #Down
+                    reconstructed_labels[cur_idx+image_size_cols] = 1
+                
+                if remainder > 0:
+                    #Left
+                    reconstructed_labels[cur_idx-1] = 1
+                    
+                    if divider > 0:
+                        #Up Left
+                        reconstructed_labels[cur_idx-image_size_cols-1] = 1
+                        
+                    if (divider < (image_size_rows-1)):
+                        #Down Left
+                        reconstructed_labels[cur_idx+image_size_cols-1] = 1
+                
+                if (remainder < (image_size_cols-1)):
+                    #Right
+                    reconstructed_labels[cur_idx+1] = 1
+                    
+                    if divider > 0:
+                        #Up Right
+                        reconstructed_labels[cur_idx-image_size_cols+1] = 1
+                        
+                    if (divider < (image_size_rows-1)):
+                        #Down Right
+                        reconstructed_labels[cur_idx+image_size_cols+1] = 1
+            labels_idx += 1 
+    return reconstructed_labels
     
 def predictImageLabels(params_path, pred_image, im_path, base_path):
     #Default parameter values
@@ -157,6 +221,8 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
             bool_display_all_contours = data['bool_display_all_contours']
         if 'bool_remove_small_pools' in data:
             bool_remove_small_pools = data['bool_remove_small_pools']
+        if 'bool_compress_predicted_pixels' in data:
+            bool_compress_predicted_pixels = data['bool_compress_predicted_pixels']
         if 'pixel_neighbourhood_size' in data:
             pixel_neighbourhood_size = data['pixel_neighbourhood_size']
             neighbourhood_step = math.floor(pixel_neighbourhood_size / 2)
@@ -190,8 +256,15 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
         pred_features = scaler.transform(pred_features)
     if bool_should_dimensionally_reduce == True:
         pred_features = dim_red_model.transform(pred_features)
-    pred_labels = clf.predict(pred_features)
-
+        
+    pred_labels = []
+    if bool_compress_predicted_pixels == True:
+        compressed_features, compressed_cols, compressed_rows = compressPredictedNeighbourhoods(pred_features, image_size_rows, image_size_cols)
+        pred_labels = clf.predict(compressed_features)
+        pred_labels = decompressPredictedNeighbourhoods(pred_labels, image_size_rows, image_size_cols, compressed_cols, compressed_rows)
+    else:
+        pred_labels = clf.predict(pred_features)
+        
     if ((bool_should_normalize == True) and (bool_do_normalization_display == True)):
         displayNormalization(pred_features, image_size_rows, image_size_cols, full_image)
 
