@@ -173,6 +173,7 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
     bool_do_normalization_display = False
     bool_display_all_contours = True
     bool_remove_small_pools = True
+    bool_compress_predicted_pixels = False
 
     pixel_neighbourhood_size = 3
     neighbourhood_step = math.floor(pixel_neighbourhood_size / 2)
