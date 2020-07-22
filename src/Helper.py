@@ -43,6 +43,7 @@ def readImagesAndMasks(path, num_of_images, is_num_singular):
     
 def extractColourFeatures(im_array, hsv_array, hsv_wrap_amount):
     #track_id = 0
+    #image_features = []
     np_sum = np.sum(im_array, axis=3, keepdims=True)
     np_sum[np_sum == 0] = 1
     np_sum = np.repeat(np_sum, 3, axis=3)
@@ -67,7 +68,6 @@ def extractColourFeatures(im_array, hsv_array, hsv_wrap_amount):
                     pixel_sum = 1
                 cur_pixel_features = [hsv_pixels[0], hsv_pixels[1], hsv_pixels[2], 
                     rgb_pixels[0]/pixel_sum, rgb_pixels[1]/pixel_sum, rgb_pixels[2]/pixel_sum]
-                print(cur_pixel_features)
                 line_im_features.append(cur_pixel_features)
             temp_image_features.append(line_im_features)
         image_features.append(temp_image_features)'''
@@ -99,7 +99,6 @@ def extractNeighbourFeatures(im_array, should_use_neighbours, should_exclude_thr
                     cur_j_down = int(pixel_j + neighbourhood_step)
                     if ((cur_i_up < 0) or (cur_i_down > (image_size_rows - 1))
                         or (cur_j_up < 0) or (cur_j_down > (image_size_cols - 1))):
-                        image_features.append(cur_pixel_features) #Dummy features
                         inclusion_mask[track_pixel] = 0
                         continue
                     cur_pixel_features = (it[cur_i_up:cur_i_down+1,cur_j_up:cur_j_down+1]).flatten()
