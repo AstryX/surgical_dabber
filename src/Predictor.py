@@ -237,10 +237,10 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
 
     time_preprocessing = time.time()
     time_preprocessing_total = time_preprocessing
-    full_image, mask_image = readImagesAndMasks(im_path, predict_num, True)
+    full_image, mask_image, hsv_array = readImagesAndMasks(im_path, predict_num, True)
     print('Image Reading Time Taken:' + str(time.time()-time_preprocessing) + ' seconds.')
     time_preprocessing = time.time()
-    singular_features = extractColourFeatures(full_image, hsv_wrap_amount)
+    singular_features = extractColourFeatures(full_image, hsv_array, hsv_wrap_amount)
     print('Single Feature Extraction Time Taken:' + str(time.time()-time_preprocessing) + ' seconds.')
     time_preprocessing = time.time()
     full_image = full_image[0]

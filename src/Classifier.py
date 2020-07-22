@@ -132,9 +132,10 @@ if bool_add_neighbourhoods == True:
     
 t = time.time()    
     
-im_array, mask_images = readImagesAndMasks(im_path, num_img, False)
-singular_features = extractColourFeatures(im_array, hsv_wrap_amount)
+im_array, mask_images, hsv_array = readImagesAndMasks(im_path, num_img, False)
+singular_features = extractColourFeatures(im_array, hsv_array, hsv_wrap_amount)
 del im_array
+del hsv_array
 image_features, inclusion_mask = extractNeighbourFeatures(singular_features, bool_add_neighbourhoods, True,
     one_pixel_features, pixel_neighbourhood_size, num_pixel_features, hsv_v_index,
     image_size_rows, image_size_cols, neighbourhood_step, hsv_v_tolerance)

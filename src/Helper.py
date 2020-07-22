@@ -17,6 +17,7 @@ import time
 def readImagesAndMasks(path, num_of_images, is_num_singular):
     temp_im = []
     temp_mask = []
+    temp_hsv_im = []
     num_loop = num_of_images
     if is_num_singular == True:
         num_loop = 1
@@ -34,15 +35,22 @@ def readImagesAndMasks(path, num_of_images, is_num_singular):
         img = cv2.imread(file_name)  
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         temp_im.append(img)
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+        temp_hsv_im.append(img)
         mask = cv2.imread(mask_name)  
         temp_mask.append(mask)
-    return temp_im, temp_mask   
+    return np.array((temp_im)), np.array((temp_mask)), np.array((temp_hsv_im)) 
     
-def extractColourFeatures(im_array, hsv_wrap_amount):
-    image_features = []
-    track_id = 0
-    im_array = np.array((im_array))
-    for it in im_array:
+def extractColourFeatures(im_array, hsv_array, hsv_wrap_amount):
+    #track_id = 0
+    np_sum = np.sum(im_array, axis=3, keepdims=True)
+    np_sum[np_sum == 0] = 1
+    np_sum = np.repeat(np_sum, 3, axis=3)
+    image_features = im_array.astype(float)
+    image_features = np.divide(image_features, np_sum)
+    image_features = np.concatenate((hsv_array, image_features), axis=3)
+    
+    '''for it in im_array:
         temp_image_features = []
         track_id += 1
         print('Extracting features for nr. ' + str(track_id))
@@ -59,9 +67,10 @@ def extractColourFeatures(im_array, hsv_wrap_amount):
                     pixel_sum = 1
                 cur_pixel_features = [hsv_pixels[0], hsv_pixels[1], hsv_pixels[2], 
                     rgb_pixels[0]/pixel_sum, rgb_pixels[1]/pixel_sum, rgb_pixels[2]/pixel_sum]
+                print(cur_pixel_features)
                 line_im_features.append(cur_pixel_features)
             temp_image_features.append(line_im_features)
-        image_features.append(temp_image_features)
+        image_features.append(temp_image_features)'''
     return np.array((image_features))
     
 def extractNeighbourFeatures(im_array, should_use_neighbours, should_exclude_thresholded,
