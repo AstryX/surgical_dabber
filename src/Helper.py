@@ -84,8 +84,12 @@ def extractNeighbourFeatures(im_array, should_use_neighbours, should_exclude_thr
                 cur_pixel_features = []
                 if should_use_neighbours == True:
                     cur_pixel_features = np.negative(np.ones(num_pixel_features))
-                    if (((pixel_i - neighbourhood_step) < 0) or ((pixel_i + neighbourhood_step) > (image_size_rows - 1))
-                        or ((pixel_j - neighbourhood_step) < 0) or ((pixel_j + neighbourhood_step) > (image_size_cols - 1))):
+                    cur_i_up = pixel_i - neighbourhood_step
+                    cur_i_down = pixel_i + neighbourhood_step
+                    cur_j_up = pixel_j - neighbourhood_step
+                    cur_j_down = pixel_j + neighbourhood_step
+                    if ((cur_i_up < 0) or (cur_i_down > (image_size_rows - 1))
+                        or (cur_j_up < 0) or (cur_j_down > (image_size_cols - 1))):
                         inclusion_mask[track_pixel] = 0
                         continue
                     for it_i in range(pixel_neighbourhood_size):
