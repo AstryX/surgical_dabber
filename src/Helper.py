@@ -90,6 +90,7 @@ def extractNeighbourFeatures(im_array, should_use_neighbours, should_exclude_thr
                     cur_j_down = pixel_j + neighbourhood_step
                     if ((cur_i_up < 0) or (cur_i_down > (image_size_rows - 1))
                         or (cur_j_up < 0) or (cur_j_down > (image_size_cols - 1))):
+                        image_features.append(cur_pixel_features) #Dummy features
                         inclusion_mask[track_pixel] = 0
                         continue
                     for it_i in range(pixel_neighbourhood_size):
