@@ -84,23 +84,16 @@ def extractNeighbourFeatures(im_array, should_use_neighbours, should_exclude_thr
                 cur_pixel_features = []
                 if should_use_neighbours == True:
                     cur_pixel_features = np.negative(np.ones(num_pixel_features))
-                    cur_i_up = pixel_i - neighbourhood_step
-                    cur_i_down = pixel_i + neighbourhood_step
-                    cur_j_up = pixel_j - neighbourhood_step
-                    cur_j_down = pixel_j + neighbourhood_step
+                    cur_i_up = int(pixel_i - neighbourhood_step)
+                    cur_i_down = int(pixel_i + neighbourhood_step)
+                    cur_j_up = int(pixel_j - neighbourhood_step)
+                    cur_j_down = int(pixel_j + neighbourhood_step)
                     if ((cur_i_up < 0) or (cur_i_down > (image_size_rows - 1))
                         or (cur_j_up < 0) or (cur_j_down > (image_size_cols - 1))):
                         image_features.append(cur_pixel_features) #Dummy features
                         inclusion_mask[track_pixel] = 0
                         continue
-                    for it_i in range(pixel_neighbourhood_size):
-                        cur_i = int(pixel_i + it_i - neighbourhood_step)
-                        for it_j in range(pixel_neighbourhood_size):
-                            cur_j = int(pixel_j + it_j - neighbourhood_step)
-                            cur_slot = int((one_pixel_features * it_i 
-                                * pixel_neighbourhood_size + one_pixel_features * it_j))
-                            cur_slot_end = cur_slot + one_pixel_features
-                            cur_pixel_features[cur_slot:cur_slot_end] = it[cur_i][cur_j]
+                    cur_pixel_features = (it[cur_i_up:cur_i_down+1,cur_j_up:cur_j_down+1]).flatten()
                 else:
                     cur_pixel_features = it[pixel_i][pixel_j]
                     
