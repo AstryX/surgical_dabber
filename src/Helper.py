@@ -100,6 +100,8 @@ def extractNeighbourFeatures(im_array, should_use_neighbours, should_exclude_thr
                     if ((cur_i_up < 0) or (cur_i_down > (image_size_rows - 1))
                         or (cur_j_up < 0) or (cur_j_down > (image_size_cols - 1))):
                         inclusion_mask[track_pixel] = 0
+                        if should_exclude_thresholded == False:
+                            image_features.append(cur_pixel_features)
                         continue
                     cur_pixel_features = (it[cur_i_up:cur_i_down+1,cur_j_up:cur_j_down+1]).flatten()
                 else:

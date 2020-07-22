@@ -288,7 +288,7 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
             if ((inclusion_mask[i] == 0) and (pred_labels[i] == 1)):
                 pred_labels[i] = 0
                 value_culling += 1
-        print('Culled ' + str(value_culling) + ' dark pixel values that were classified as blood!')
+        print('Culled ' + str(value_culling) + ' edge and dark pixel values that were classified as blood!')
     
     smoothing_kernel = np.ones((5, 5), np.uint8)
     pred_image = cv2.cvtColor(full_image, cv2.COLOR_RGB2BGR)
