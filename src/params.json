@@ -21,7 +21,6 @@
     "bool_should_normalize":true,
     "bool_do_pca_experiment":false,
     "bool_do_pca_separately":false,
-    "bool_exclude_border_pixels":true,
     "bool_do_normalization_display":false,
     "bool_display_all_contours":false,
     "bool_remove_small_pools":true,

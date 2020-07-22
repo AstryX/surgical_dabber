@@ -66,7 +66,7 @@ def extractColourFeatures(im_array, hsv_wrap_amount):
     
 def extractNeighbourFeatures(im_array, should_use_neighbours, should_exclude_thresholded,
     one_pixel_features, pixel_neighbourhood_size, num_pixel_features, hsv_v_index,
-    image_size_rows, image_size_cols, neighbourhood_step, hsv_v_tolerance, bool_exclude_border_pixels):
+    image_size_rows, image_size_cols, neighbourhood_step, hsv_v_tolerance):
     image_features = []
     track_id = 0
     tolerance_removal_count = 0
@@ -86,6 +86,7 @@ def extractNeighbourFeatures(im_array, should_use_neighbours, should_exclude_thr
                     cur_pixel_features = np.negative(np.ones(num_pixel_features))
                     if (((pixel_i - neighbourhood_step) < 0) or ((pixel_i + neighbourhood_step) > (image_size_rows - 1))
                         or ((pixel_j - neighbourhood_step) < 0) or ((pixel_j + neighbourhood_step) > (image_size_cols - 1))):
+                        inclusion_mask[track_pixel] = 0
                         continue
                     for it_i in range(pixel_neighbourhood_size):
                         cur_i = int(pixel_i + it_i - neighbourhood_step)
@@ -99,18 +100,7 @@ def extractNeighbourFeatures(im_array, should_use_neighbours, should_exclude_thr
                     cur_pixel_features = it[pixel_i][pixel_j]
                     
                 if cur_pixel_features[center_slot + hsv_v_index] >= hsv_v_tolerance:
-                    if bool_exclude_border_pixels == True:
-                        cur_i_up = pixel_i - neighbourhood_step
-                        cur_i_down = pixel_i + neighbourhood_step
-                        cur_j_up = pixel_j - neighbourhood_step
-                        cur_j_down = pixel_j + neighbourhood_step
-                        if ((cur_i_up < 0) or (cur_i_down > (image_size_rows - 1))
-                            or (cur_j_up < 0) or (cur_j_down > (image_size_cols - 1))):
-                            inclusion_mask[track_pixel] = 0
-                        else:
-                            image_features.append(cur_pixel_features)
-                    else:
-                        image_features.append(cur_pixel_features)
+                    image_features.append(cur_pixel_features)
                 else:
                     tolerance_removal_count += 1
                     inclusion_mask[track_pixel] = 0

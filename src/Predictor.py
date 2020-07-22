@@ -170,7 +170,6 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
     bool_should_mask_hue = True
     bool_should_normalize = False
     bool_should_dimensionally_reduce = True
-    bool_exclude_border_pixels = True
     bool_do_normalization_display = False
     bool_display_all_contours = True
     bool_remove_small_pools = True
@@ -216,8 +215,6 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
         if 'bool_should_dimensionally_reduce' in data:
             bool_should_dimensionally_reduce = data['bool_should_dimensionally_reduce']
         if 'bool_exclude_border_pixels' in data:
-            bool_exclude_border_pixels = data['bool_exclude_border_pixels']
-        if 'bool_do_normalization_display' in data:
             bool_do_normalization_display = data['bool_do_normalization_display']
         if 'bool_display_all_contours' in data:
             bool_display_all_contours = data['bool_display_all_contours']
@@ -249,7 +246,7 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
     full_image = full_image[0]
     pred_features, inclusion_mask = extractNeighbourFeatures(singular_features, bool_add_neighbourhoods, False,
         one_pixel_features, pixel_neighbourhood_size, num_pixel_features, hsv_v_index,
-        image_size_rows, image_size_cols, neighbourhood_step, hsv_v_tolerance, bool_exclude_border_pixels)
+        image_size_rows, image_size_cols, neighbourhood_step, hsv_v_tolerance)
     print('Neighbourhood Extraction Time Taken:' + str(time.time()-time_preprocessing) + ' seconds.')
     time_preprocessing = time.time()
     dummy_inclusion_mask = np.ones(len(inclusion_mask))

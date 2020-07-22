@@ -41,7 +41,6 @@ bool_should_normalize = True
 bool_should_dimensionally_reduce = True
 bool_do_pca_experiment = True
 bool_do_pca_separately = False
-bool_exclude_border_pixels = True
 
 pixel_neighbourhood_size = 3
 neighbourhood_step = math.floor(pixel_neighbourhood_size / 2)
@@ -97,8 +96,6 @@ with open(param_name) as json_data_file:
         bool_do_pca_experiment = data['bool_do_pca_experiment']
     if 'bool_do_pca_separately' in data:
         bool_do_pca_separately = data['bool_do_pca_separately']
-    if 'bool_exclude_border_pixels' in data:
-        bool_exclude_border_pixels = data['bool_exclude_border_pixels']
     if 'pixel_neighbourhood_size' in data:
         pixel_neighbourhood_size = data['pixel_neighbourhood_size']
         neighbourhood_step = math.floor(pixel_neighbourhood_size / 2)
@@ -140,7 +137,7 @@ singular_features = extractColourFeatures(im_array, hsv_wrap_amount)
 del im_array
 image_features, inclusion_mask = extractNeighbourFeatures(singular_features, bool_add_neighbourhoods, True,
     one_pixel_features, pixel_neighbourhood_size, num_pixel_features, hsv_v_index,
-    image_size_rows, image_size_cols, neighbourhood_step, hsv_v_tolerance, bool_exclude_border_pixels)
+    image_size_rows, image_size_cols, neighbourhood_step, hsv_v_tolerance)
 del singular_features
 mask_labels, blood_data, nonblood_data, blood_labels, nonblood_labels = extractMaskLabels(mask_images, image_features, inclusion_mask)
 
