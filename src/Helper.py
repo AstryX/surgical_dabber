@@ -84,14 +84,13 @@ def extractNeighbourFeatures(im_array, should_use_neighbours, should_exclude_thr
                 cur_pixel_features = []
                 if should_use_neighbours == True:
                     cur_pixel_features = np.negative(np.ones(num_pixel_features))
+                    if (((pixel_i - neighbourhood_step) < 0) or ((pixel_i + neighbourhood_step) > (image_size_rows - 1))
+                        or ((pixel_j - neighbourhood_step) < 0) or ((pixel_j + neighbourhood_step) > (image_size_cols - 1))):
+                        continue
                     for it_i in range(pixel_neighbourhood_size):
                         cur_i = int(pixel_i + it_i - neighbourhood_step)
-                        if cur_i < 0 or cur_i > (image_size_rows - 1):
-                            continue
                         for it_j in range(pixel_neighbourhood_size):
                             cur_j = int(pixel_j + it_j - neighbourhood_step)
-                            if cur_j < 0 or cur_j > (image_size_cols - 1):
-                                continue
                             cur_slot = int((one_pixel_features * it_i 
                                 * pixel_neighbourhood_size + one_pixel_features * it_j))
                             cur_slot_end = cur_slot + one_pixel_features
