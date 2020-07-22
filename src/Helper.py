@@ -36,11 +36,12 @@ def readImagesAndMasks(path, num_of_images, is_num_singular):
         temp_im.append(img)
         mask = cv2.imread(mask_name)  
         temp_mask.append(mask)
-    return temp_im, temp_mask
+    return temp_im, temp_mask   
     
 def extractColourFeatures(im_array, hsv_wrap_amount):
     image_features = []
     track_id = 0
+    im_array = np.array((im_array))
     for it in im_array:
         temp_image_features = []
         track_id += 1
@@ -93,9 +94,8 @@ def extractNeighbourFeatures(im_array, should_use_neighbours, should_exclude_thr
                                 continue
                             cur_slot = int((one_pixel_features * it_i 
                                 * pixel_neighbourhood_size + one_pixel_features * it_j))
-                            for it_z in range(one_pixel_features):
-                                cur_feature = it[cur_i][cur_j][it_z]
-                                cur_pixel_features[cur_slot + it_z] = cur_feature  
+                            cur_slot_end = cur_slot + one_pixel_features
+                            cur_pixel_features[cur_slot:cur_slot_end] = it[cur_i][cur_j]
                 else:
                     cur_pixel_features = it[pixel_i][pixel_j]
                     
@@ -117,6 +117,7 @@ def extractNeighbourFeatures(im_array, should_use_neighbours, should_exclude_thr
                     inclusion_mask[track_pixel] = 0
                     if should_exclude_thresholded == False:
                         image_features.append(cur_pixel_features)
+                        
     print('HSV Value tolerance check removed ' + str(tolerance_removal_count) + ' pixels!')
     return np.array((image_features)),  np.array((inclusion_mask))
     
