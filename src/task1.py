@@ -98,12 +98,100 @@ def check_if_goal_reached(pose_goal, cur_group, tolerance):
     print('Did robot reach goal within tolerance: ' + str(bool_reached_goal))
     return bool_reached_goal
     
+def reset_start_state(blue_group, active_joints):
+    pose_goal_joints = blue_group.get_current_joint_values()
+    print('Cur joints')
+    print(pose_goal_joints)
+
+    joint_state = JointState()
+    joint_state.header = Header()
+    joint_state.header.stamp = rospy.Time.now()
+    joint_state.name = active_joints
+    joint_state.position = pose_goal_joints
+    moveit_robot_state = RobotState()
+    moveit_robot_state.joint_state = joint_state
+    blue_group.set_start_state(moveit_robot_state) 
+    
+def plan_and_move(location_array, blue_group, ros_path, backup_plan, num_tries, active_joints, x_offset):
+    rospy.sleep(1)
+    reset_start_state(blue_group, active_joints)
+    combined_path = None
+    if backup_plan is not None:
+        combined_path = ros_path+backup_plan
+    plan, plan_pose = plan_to_goal(location_array[0]+x_offset, location_array[1], location_array[2], blue_group, num_tries, combined_path)
+    blue_group.execute(plan[1], wait=True)
+    blue_group.stop()
+    blue_group.clear_pose_targets() 
+    
+    return plan_pose
+
+def pixel_to_map_coordinates(top_pool_deepest_point_id, image_size_cols, image_size_rows):
+    max_range_x = 1.0
+    max_range_y = 1.0
+    base_image_z = -0.5
+
+    step_x = (max_range_x * 2) / float(image_size_cols)
+    step_y = (max_range_y * 2) / float(image_size_rows)
+
+    print('Step x: ' + str(step_x))
+    print('Step y: ' + str(step_y))
+
+    center_x = step_x * (image_size_cols/2)
+    center_y = step_y * (image_size_rows/2)
+
+    print('Center x: ' + str(center_x))
+    print('Center y: ' + str(center_y))
+
+    #TODO Add extra to base z to account for depth
+    goal_x_idx = top_pool_deepest_point_id % image_size_cols
+    print('Goal x index: ' + str(goal_x_idx))
+    goal_x = step_x * goal_x_idx - center_x
+
+    goal_y_idx = math.floor(top_pool_deepest_point_id / image_size_cols)
+    print('Goal y index: ' + str(goal_y_idx))
+    goal_y = max_range_y - step_y * goal_y_idx
+
+    goal_z = base_image_z
+
+    print('Robot goal coordinates:')
+    print('Goal x: ' + str(goal_x))
+    print('Goal y: ' + str(goal_y))
+    print('Goal z: ' + str(goal_z))
+
+    dabbing_goal = [goal_x, goal_y, goal_z]   
+    return dabbing_goal
+    
+def extract_optimal_goal(before_path, after_path, predict_num, image_size_cols, image_size_rows,
+                        im_path, params_path, ros_path, bool_display_final_contour):
+    before = loadPointCloud(before_path)
+    after = loadPointCloud(after_path)
+    print('Before and after shape after cloud loading:')
+    print(before.shape)
+    print(after.shape)
+
+    before_z = before['z']
+    after_z = after['z']
+
+    time_benchmark = time.time()
+    pred_labels, final_contours, loaded_image = predictImageLabels(params_path, predict_num, im_path, ros_path)
+    print("Run time of Image pixel prediction: " + str(time.time() - time_benchmark) + " seconds.")
+    time_benchmark = time.time()
+    top_pool_id, top_pool_deepest_point_id, top_pool_volume = findOptimalDestination(before_z, after_z,
+        image_size_rows, image_size_cols, pred_labels, final_contours, loaded_image, bool_display_final_contour)
+    print("Run time of Optimal Dab Destination computation: " + str(time.time() - time_benchmark) + " seconds.")
+    
+    return pixel_to_map_coordinates(top_pool_deepest_point_id, image_size_cols, image_size_rows)
+    
 location_idle = [0.0, 0.0, -0.5]
 location_dab = [1.1, 0.3, -0.5]
 location_disposal = [0.3, -1.1, -0.5]
-    
 ros_path = "./src/surgical_dabber/src/"
 params_path = ros_path+"params.json"
+predict_num = 200
+image_size_rows = 250
+image_size_cols = 330
+bool_display_final_contour = True
+im_path = ros_path + "Dataset/Processed/"
 
 with open(params_path) as json_data_file:  
     data = json.load(json_data_file)
@@ -113,6 +201,16 @@ with open(params_path) as json_data_file:
         location_idle = data['location_idle']
     if 'location_disposal' in data:
         location_disposal = data['location_disposal']
+    if 'predict_num' in data:
+        predict_num = int(data['predict_num'])
+    if 'image_size_rows' in data:
+        image_size_rows = data['image_size_rows']
+    if 'image_size_cols' in data:
+        image_size_cols = data['image_size_cols']
+    if 'im_path' in data:
+        im_path = ros_path + data['im_path']
+    if 'bool_display_final_contour' in data:
+        bool_display_final_contour = data['bool_display_final_contour']
     
 moveit_commander.roscpp_initialize(sys.argv)
 rospy.init_node('task1', anonymous=True)
@@ -136,107 +234,71 @@ rospy.sleep(1)
 
 
 
-#insert_box(0, 0, 0.6, 0.75, 0.75, 0.1, scene, "ceiling", robot.get_planning_frame())
+#insert_box(blue_offset_x, 0, 0.6, 0.75, 0.75, 0.1, scene, "ceiling", robot.get_planning_frame())
 insert_box(0+blue_offset_x, 0, -1.26, 2.0, 2.0, 0.01, scene, "floor", robot.get_planning_frame())
-#insert_box(1.3, -0.35, -0.9, 0.2, 0.2, 1.0, scene, "path_obstacle", robot.get_planning_frame())
+#insert_box(1.3+blue_offset_x, -0.35, -0.9, 0.2, 0.2, 1.0, scene, "path_obstacle", robot.get_planning_frame())
 insert_box(-1.15+blue_offset_x, 0.5, -1.0, 0.25, 0.4, 0.6, scene, "surgeon_body", robot.get_planning_frame())
 insert_box(-1.15+blue_offset_x, 0.5, -0.6, 0.15, 0.2, 0.2, scene, "surgeon_head", robot.get_planning_frame())
 insert_box(-1.0+blue_offset_x, 0.25, -0.9, 0.4, 0.15, 0.15, scene, "surgeon_left_arm", robot.get_planning_frame())
 insert_box(-1.0+blue_offset_x, 0.75, -0.9, 0.4, 0.15, 0.15, scene, "surgeon_right_arm", robot.get_planning_frame())
 #insert_box(0, 0, 0.2, 0.025, 0.025, 0.2, scene, "dab", blue_group.get_end_effector_link())
-#insert_box(0, 0, 0.2, 0.025, 0.025, 0.2, scene, "dab", blue_group.get_end_effector_link())
-insert_mesh(location_dab[0]+blue_offset_x, location_dab[1], location_dab[2], 1.0, 1.0, 1.0, scene, "dab_mesh", robot.get_planning_frame(), './src/surgical_dabber/src/Dataset/Processed/dab.stl')
+insert_mesh(location_dab[0]+blue_offset_x, location_dab[1], location_dab[2]-0.4, 1.0, 1.0, 1.0, scene, "dab_mesh", robot.get_planning_frame(), './src/surgical_dabber/src/Dataset/Processed/dab.stl')
 rospy.sleep(1)
 
-
-
-touch_links = robot.get_link_names(group=robot.get_group_names()[1])
-#scene.attach_box(blue_group.get_end_effector_link(), "dab", touch_links=touch_links)
-blue_group.allow_looking(True)
-blue_group.allow_replanning(True)
-blue_group.set_planning_time(30.0)
-blue_group.set_num_planning_attempts(8)
-print('Known constraints')
-print(blue_group.get_known_constraints())
-pose_start_joints = blue_group.get_current_joint_values()
-print('Start joints:')
-print(pose_start_joints)
-#blue_group.set_start_state_to_current_state()
-
-print("Planning frame name: " + str(blue_group.get_planning_frame()))
-print("Endeffector link name: " + str(blue_group.get_end_effector_link()))
-display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path', moveit_msgs.msg.DisplayTrajectory, queue_size=20)
-
-#blue_group.pick("dab-mesh")
-
-plan_1, plan_1_pose = plan_to_goal(location_idle[0]+blue_offset_x, location_idle[1], location_idle[2], blue_group, 10, ros_path+'start_to_idle')
-print(plan_1)
-blue_group.execute(plan_1[1], wait=True)
-blue_group.stop()
-blue_group.clear_pose_targets()
-
-
-rospy.sleep(1)
-
-#blue_group.set_start_state_to_current_state()
-pose_goal_joints = blue_group.get_current_joint_values()
-print('Cur joints')
-print(pose_goal_joints)
 active_joints = blue_group.get_active_joints()
 print('Active joints')
 print(active_joints)
 
-joint_state = JointState()
-joint_state.header = Header()
-joint_state.header.stamp = rospy.Time.now()
-joint_state.name = active_joints
-joint_state.position = pose_goal_joints
-moveit_robot_state = RobotState()
-moveit_robot_state.joint_state = joint_state
-blue_group.set_start_state(moveit_robot_state)
+touch_links = robot.get_link_names(group=robot.get_group_names()[1])
+#scene.attach_box(blue_group.get_end_effector_link(), "dab", touch_links=touch_links)
+#blue_group.allow_looking(True)
+#blue_group.allow_replanning(True)
+#blue_group.set_planning_time(30.0)
+#blue_group.set_num_planning_attempts(8)
+print('Known constraints')
+print(blue_group.get_known_constraints())
 
-plan_2, plan_2_pose = plan_to_goal(location_dab[0]+blue_offset_x, location_dab[1], location_dab[2]+0.4, blue_group, 10, ros_path+'idle_to_dab')
-blue_group.execute(plan_2[1], wait=True)
-blue_group.stop()
-blue_group.clear_pose_targets()
+print("Planning frame name: " + str(blue_group.get_planning_frame()))
+print("Endeffector link name: " + str(blue_group.get_end_effector_link()))
+display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path', moveit_msgs.msg.DisplayTrajectory, queue_size=20)
+#blue_group.pick("dab-mesh")
 
-scene.attach_mesh(blue_group.get_end_effector_link(), "dab_mesh", touch_links=touch_links)
+_ = plan_and_move(location_idle, blue_group, ros_path, 'start_to_idle', 10, active_joints, blue_offset_x)
 
-pose_goal_joints = blue_group.get_current_joint_values()
-print('Cur joints')
-print(pose_goal_joints)
+rospy.sleep(1)
 
-joint_state = JointState()
-joint_state.header = Header()
-joint_state.header.stamp = rospy.Time.now()
-joint_state.name = active_joints
-joint_state.position = pose_goal_joints
-moveit_robot_state = RobotState()
-moveit_robot_state.joint_state = joint_state
-blue_group.set_start_state(moveit_robot_state)
+while not rospy.is_shutdown():
+    map_pub.publish(destination_marker)
+    rospy.sleep(0.01)
+    
+    _ = plan_and_move(location_dab, blue_group, ros_path, 'idle_to_dab', 10, active_joints, blue_offset_x)
 
-plan_3, plan_3_pose = plan_to_goal(location_idle[0]+blue_offset_x, location_idle[1], location_idle[2], blue_group, 10, ros_path+'dab_to_idle')
-blue_group.execute(plan_3[1], wait=True)
-blue_group.stop()
-blue_group.clear_pose_targets()
+    scene.attach_mesh(blue_group.get_end_effector_link(), "dab_mesh", touch_links=touch_links)
 
-pose_goal_joints = blue_group.get_current_joint_values()
-print('Cur joints')
-print(pose_goal_joints)
+    _ = plan_and_move(location_idle, blue_group, ros_path, 'dab_to_idle', 10, active_joints, blue_offset_x)
 
-joint_state = JointState()
-joint_state.header = Header()
-joint_state.header.stamp = rospy.Time.now()
-joint_state.name = active_joints
-joint_state.position = pose_goal_joints
-moveit_robot_state = RobotState()
-moveit_robot_state.joint_state = joint_state
-blue_group.set_start_state(moveit_robot_state)
+    input_before = raw_input("Before point cloud file name:")
+    input_after = raw_input("Before point cloud file name:")
+    input_predict_num = raw_input("Predicted image number (int):")
+    input_predict_num = int(input_predict_num)
 
-plan_4, plan_4_pose = plan_to_goal(0.7+blue_offset_x, -0.5, -0.5, blue_group, 10, ros_path+'idle_to_body')
-blue_group.execute(plan_4[1], wait=True)
-blue_group.stop()
-blue_group.clear_pose_targets()
+    before_path = im_path+'pc_mock/'+input_before
+    after_path = im_path+'pc_mock/'+input_after
+
+    dabbing_goal = extract_optimal_goal(before_path, after_path, input_predict_num, image_size_cols, 
+        image_size_rows, im_path, params_path, ros_path, bool_display_final_contour)
+
+    cleaning_goal = plan_and_move(dabbing_goal, blue_group, ros_path, None, 10, active_joints, blue_offset_x)
+    
+    has_reached = check_if_goal_reached(cleaning_goal, blue_group, 0.01)
+    
+    _ = plan_and_move(location_idle, blue_group, ros_path, None, 10, active_joints, blue_offset_x)
+    
+    _ = plan_and_move(location_dab, blue_group, ros_path, 'idle_to_dab', 10, active_joints, blue_offset_x)
+    
+    scene.remove_attached_object(blue_group.get_end_effector_link(), blue_group.get_end_effector_link())
+
+    _ = plan_and_move(location_idle, blue_group, ros_path, 'dab_to_idle', 10, active_joints, blue_offset_x)
 
 #dump(plan_4, "idle_to_body")
 
@@ -249,35 +311,4 @@ blue_group.stop()
 blue_group.clear_pose_targets()
 
 rospy.sleep(1)'''
-
-
-'''plan_1, plan_1_pose = plan_to_goal(location_idle[0], location_idle[1], location_idle[2], blue_group)
-pose_goal_joints = blue_group.get_current_joint_values()
-
-blue_group.go(wait=True)
-blue_group.stop()
-blue_group.clear_pose_targets()
-
-rospy.sleep(1)
-
-plan_1, plan_1_pose = plan_to_goal(0.7, -0.5, -0.4, blue_group)
-pose_goal_joints = blue_group.get_current_joint_values()
-
-blue_group.go(wait=True)
-blue_group.stop()
-blue_group.clear_pose_targets()
-
-rospy.sleep(1)
-
-plan_1, plan_1_pose = plan_to_goal(location_disposal[0], location_disposal[1], location_disposal[2], blue_group)
-pose_goal_joints = blue_group.get_current_joint_values()
-
-blue_group.go(wait=True)
-blue_group.stop()
-blue_group.clear_pose_targets()'''
-
-has_reached = check_if_goal_reached(plan_4_pose, blue_group, 0.01)
-
-while not rospy.is_shutdown():
-    map_pub.publish(destination_marker)
-    rospy.sleep(0.01)
+    
