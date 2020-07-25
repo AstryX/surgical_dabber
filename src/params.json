@@ -1,7 +1,7 @@
 {
-    "num_img":197,
+    "num_img":50,
     "fold_count":5,
-    "num_label_data":500000,
+    "num_label_data":100000,
     "percentage_data":0.035,
     "image_size_rows":250,
     "image_size_cols":330,
@@ -27,7 +27,7 @@
     "bool_display_final_contour":false,
     "bool_compress_predicted_pixels":false,
 
-    "location_idle":[0.0,0.0,-0.5],
+    "location_idle":[0.5,0.0,-0.5],
     "location_dab":[1.1,0.6,-0.45],
     "location_disposal":[0.3,-0.9,-0.6],
 

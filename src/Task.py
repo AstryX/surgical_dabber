@@ -17,7 +17,7 @@ moveit_commander.roscpp_initialize(sys.argv)
 rospy.init_node('task1', anonymous=True)
 robot = moveit_commander.RobotCommander()
 
-group_name = "ur10"
+group_name = robot.get_group_names()[0]
 blue_group = moveit_commander.MoveGroupCommander(group_name)
 display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path', moveit_msgs.msg.DisplayTrajectory, queue_size=20)
 
