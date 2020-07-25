@@ -22,7 +22,7 @@ from Helper import extractNeighbourFeatures, extractMaskLabels
 #Default parameter values
 num_img = 41
 fold_count = 5
-num_label_data = 21400
+num_label_data = 1917528
 percentage_data = 0.035
 image_size_rows = 250
 image_size_cols = 330
@@ -458,7 +458,7 @@ clf = None
 if bool_use_bayes == False:
     #clf = svm.LinearSVC(C=3.0, random_state=0, verbose=True, tol=1e-5, class_weight='balanced')
     
-    clf = RandomForestClassifier(n_estimators=200, random_state=0, n_jobs=6, class_weight='balanced', verbose=True)
+    clf = RandomForestClassifier(n_estimators=200, random_state=0, n_jobs=-1, class_weight='balanced', verbose=True)
     
     #clf = svm.SVC(C=3.0,kernel='rbf',verbose=True, class_weight='balanced')
     
