@@ -14,8 +14,11 @@ from visualization_msgs.msg import MarkerArray
 from moveit_commander.conversions import pose_to_list
 from joblib import dump,load
 import pyassimp
-from math import pi
 import json
+import math
+import time
+from Predictor import predictImageLabels, findOptimalDestination
+from Helper import loadPointCloud
 
 def insert_box(x, y, z, scale_x, scale_y, scale_z, cur_scene, obs_name, frame_id):
     box_pose = geometry_msgs.msg.PoseStamped()
@@ -278,7 +281,7 @@ while not rospy.is_shutdown():
     _ = plan_and_move(location_idle, blue_group, ros_path, 'dab_to_idle', 10, active_joints, blue_offset_x)
 
     input_before = raw_input("Before point cloud file name:")
-    input_after = raw_input("Before point cloud file name:")
+    input_after = raw_input("After point cloud file name:")
     input_predict_num = raw_input("Predicted image number (int):")
     input_predict_num = int(input_predict_num)
 
@@ -296,7 +299,7 @@ while not rospy.is_shutdown():
     
     _ = plan_and_move(location_dab, blue_group, ros_path, 'idle_to_dab', 10, active_joints, blue_offset_x)
     
-    scene.remove_attached_object(blue_group.get_end_effector_link(), blue_group.get_end_effector_link())
+    scene.remove_attached_object(blue_group.get_end_effector_link(), "dab_mesh")
 
     _ = plan_and_move(location_idle, blue_group, ros_path, 'dab_to_idle', 10, active_joints, blue_offset_x)
 
