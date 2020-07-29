@@ -41,6 +41,7 @@ scaler.joblib
 pca.joblib
 blood_classifier.joblib
 kvasir-dataset-v2/
+pickles/
 
 # Unit test / coverage reports
 htmlcov/
