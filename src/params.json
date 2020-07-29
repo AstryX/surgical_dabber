@@ -27,9 +27,11 @@
     "bool_display_final_contour":false,
     "bool_compress_predicted_pixels":false,
 
-    "location_idle":[0.5,0.0,-0.5],
-    "location_dab":[1.1,0.6,-0.05],
-    "location_disposal":[0.3,-0.9,-0.6],
+    "location_idle":[0.1,0.0,-0.45],
+    "location_dab":[0.35,-0.4,-0.55],
+    "location_disposal":[0.15,-0.4,-0.65],
+    "init_joint_state":[-0.20639741146209817,-0.15102010932503235,1.1829538210561723,0.5388390898820403,1.5708008621132574,1.3643624244936943],
+    "destination_x_offset":0.7,
 
     "pixel_neighbourhood_size":3,
     "im_path":"Dataset/Processed/",
