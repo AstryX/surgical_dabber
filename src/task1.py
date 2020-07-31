@@ -139,7 +139,7 @@ def plan_and_move(location_array, blue_group, ros_path, backup_plan, num_tries, 
 def pixel_to_map_coordinates(top_pool_deepest_point_id, image_size_cols, image_size_rows):
     max_range_x = 0.5
     max_range_y = max_range_x * image_size_rows/image_size_cols
-    base_image_z = -0.6
+    base_image_z = -0.65
 
     step_x = (max_range_x * 2) / float(image_size_cols)
     step_y = (max_range_y * 2) / float(image_size_rows)
@@ -262,13 +262,13 @@ blue_offset_x = -0.745 + destination_x_offset
 
 map_pub = rospy.Publisher('/map_blood', MarkerArray, queue_size = 100)
 
-insert_box(0+blue_offset_x, 0, 0.6, 4.0, 1.0, 0.01, scene, "ceiling", robot.get_planning_frame())
+insert_box(0+blue_offset_x, 0, 0.4, 4.0, 1.0, 0.01, scene, "ceiling", robot.get_planning_frame())
 insert_box(0+blue_offset_x, 0, -0.96, 4.0, 1.0, 0.01, scene, "floor", robot.get_planning_frame())
 #insert_box(1.3+blue_offset_x, -0.35, -0.6, 0.2, 0.2, 1.0, scene, "path_obstacle", robot.get_planning_frame())
-insert_box(-1.15+blue_offset_x, 0.25, -0.7, 0.25, 0.4, 0.6, scene, "surgeon_body", robot.get_planning_frame())
-insert_box(-1.15+blue_offset_x, 0.25, -0.3, 0.15, 0.2, 0.2, scene, "surgeon_head", robot.get_planning_frame())
-insert_box(-1.0+blue_offset_x, 0.0, -0.6, 0.4, 0.15, 0.15, scene, "surgeon_left_arm", robot.get_planning_frame())
-insert_box(-1.0+blue_offset_x, 0.5, -0.6, 0.4, 0.15, 0.15, scene, "surgeon_right_arm", robot.get_planning_frame())
+insert_box(0.25+blue_offset_x, 0.75, -0.7, 0.4, 0.25, 0.6, scene, "surgeon_body", robot.get_planning_frame())
+insert_box(0.25+blue_offset_x, 0.75, -0.3, 0.2, 0.15, 0.2, scene, "surgeon_head", robot.get_planning_frame())
+insert_box(blue_offset_x, 0.6, -0.6, 0.15, 0.4, 0.15, scene, "surgeon_left_arm", robot.get_planning_frame())
+insert_box(0.5+blue_offset_x, 0.6, -0.6, 0.15, 0.4, 0.15, scene, "surgeon_right_arm", robot.get_planning_frame())
 #insert_box(0, 0, 0.2, 0.025, 0.025, 0.2, scene, "dab", blue_group.get_end_effector_link())
 insert_mesh(location_dab[0]+blue_offset_x, location_dab[1], location_dab[2]-0.2, 0.25, 0.25, 0.25, scene, "dab_mesh",
             robot.get_planning_frame(), './src/surgical_dabber/src/Dataset/Processed/dab.stl')
@@ -291,7 +291,6 @@ print("Planning frame name: " + str(blue_group.get_planning_frame()))
 print("Endeffector link name: " + str(blue_group.get_end_effector_link()))
 display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path', moveit_msgs.msg.DisplayTrajectory, queue_size=20)
 #blue_group.pick("dab-mesh")
-
 initialize_robot_arms(init_joint_state, blue_group, red_group)
 rospy.sleep(1)
 
@@ -310,7 +309,7 @@ while not rospy.is_shutdown():
     input_pcd = int(raw_input("Point cloud index (1-3 int):"))
     input_predict_num = int(raw_input("Predicted image number (1-200 int):"))
 
-    destination_marker = create_mesh_marker(blue_offset_x, 0.0, -0.95, 0.5, 0.5, 1.0,
+    destination_marker = create_mesh_marker(blue_offset_x, 0.0, -0.9, 0.5, 0.5, 1.0,
         robot.get_planning_frame(), 'package://surgical_dabber/src/Dataset/Processed/body_'+str(input_pcd)+'.dae')
     map_pub.publish(destination_marker)
     rospy.sleep(0.01)
@@ -319,7 +318,7 @@ while not rospy.is_shutdown():
     after_path = im_path+'pc_mock/after_'+str(input_pcd)+'.PCD'
 
     dabbing_goal = extract_optimal_goal(before_path, after_path, input_predict_num, image_size_cols, 
-        image_size_rows, im_path, params_path, plan_path, bool_display_final_contour)
+        image_size_rows, im_path, params_path, ros_path, bool_display_final_contour)
 
     cleaning_goal, cleaning_plan = plan_and_move(dabbing_goal, blue_group, plan_path, None, 10, active_joints, blue_offset_x)
     cleaning_plan[1].joint_trajectory.points.reverse()
