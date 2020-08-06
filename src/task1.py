@@ -65,8 +65,8 @@ def plan_to_goal(x, y, z, cur_group, num_tries, backup_plan):
     full_plan = None
     for i in range(num_tries):
         pose_goal = geometry_msgs.msg.Pose()
-        pose_goal.orientation.x = -1.0
-        #pose_goal.orientation.w = 1.0
+        #pose_goal.orientation.x = -1.0
+        pose_goal.orientation.w = 1.0
         pose_goal.position.x = x
         pose_goal.position.y = y
         pose_goal.position.z = z
@@ -83,6 +83,23 @@ def plan_to_goal(x, y, z, cur_group, num_tries, backup_plan):
         full_plan = load(backup_plan)
 
     return full_plan, pose_goal
+
+def plan_to_goal_joints(joints, cur_group, num_tries, backup_plan):
+    full_plan = None
+    for i in range(num_tries):
+        cur_group.set_joint_value_target(joints)
+        plan = cur_group.plan()
+
+        if plan[0] == True:
+            print('Path found after ' + str(i+1) + ' out of ' + str(num_tries) + ' attempts!')
+            full_plan = plan
+            break
+
+    if ((full_plan is None) and (backup_plan is not None)):
+        print('Path not found after ' + str(num_tries) + ' tries! Reverting to the backup choice...')
+        full_plan = load(backup_plan)
+
+    return full_plan, None
     
 def check_if_goal_reached(pose_goal, cur_group, tolerance):
     pose_goal_arr = pose_to_list(pose_goal)
@@ -124,12 +141,16 @@ def plan_and_move(location_array, blue_group, ros_path, backup_plan, num_tries, 
     if precomputed_safe_plan is None:
         if backup_plan is not None:
             combined_path = ros_path+backup_plan
-        plan, plan_pose = plan_to_goal(location_array[0]+x_offset, location_array[1], location_array[2], blue_group, num_tries, combined_path)
+        if len(location_array) == 3:
+            plan, plan_pose = plan_to_goal(location_array[0]+x_offset, location_array[1], location_array[2], blue_group, num_tries, combined_path)
+        else:
+            plan, plan_pose = plan_to_goal_joints(location_array, blue_group, num_tries, combined_path)
         #Saving plans code:
-        #if (plan is not None) and (backup_plan is not None):
-        #    dump(plan, backup_plan)
+        if (plan is not None) and (backup_plan is not None):
+            dump(plan, backup_plan)
         blue_group.execute(plan[1], wait=True)
     else:
+        print('Executing precomputed safe plan!')
         blue_group.execute(precomputed_safe_plan, wait=True)
     blue_group.stop()
     blue_group.clear_pose_targets()
@@ -137,9 +158,9 @@ def plan_and_move(location_array, blue_group, ros_path, backup_plan, num_tries, 
     return plan_pose, plan
 
 def pixel_to_map_coordinates(top_pool_deepest_point_id, image_size_cols, image_size_rows):
-    max_range_x = 0.5
+    max_range_x = 0.33
     max_range_y = max_range_x * image_size_rows/image_size_cols
-    base_image_z = -0.65
+    base_image_z = 1.1
 
     step_x = (max_range_x * 2) / float(image_size_cols)
     step_y = (max_range_y * 2) / float(image_size_rows)
@@ -205,10 +226,10 @@ def initialize_robot_arms(init_joint_state, blue_group, red_group):
     '''red_group.go(init_joint_state, wait=True)
     red_group.stop()
     red_group.clear_pose_targets()'''
-    
-location_idle = [0.0, 0.0, -0.5]
+
 location_dab = [1.1, 0.3, -0.5]
-location_disposal = [0.3, -1.1, -0.5]
+joints_dab = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+joints_disposal = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 ros_path = "./src/surgical_dabber/src/"
 plan_path = ros_path + 'Plans/'
 params_path = ros_path+"params.json"
@@ -224,10 +245,10 @@ with open(params_path) as json_data_file:
     data = json.load(json_data_file)
     if 'location_dab' in data:
         location_dab = data['location_dab']
-    if 'location_idle' in data:
-        location_idle = data['location_idle']
-    if 'location_disposal' in data:
-        location_disposal = data['location_disposal']
+    if 'joints_disposal' in data:
+        joints_disposal = data['joints_disposal']
+    if 'joints_dab' in data:
+        joints_dab = data['joints_dab']
     if 'predict_num' in data:
         predict_num = int(data['predict_num'])
     if 'image_size_rows' in data:
@@ -257,20 +278,20 @@ blue_group = moveit_commander.MoveGroupCommander(group_name)
 red_group = moveit_commander.MoveGroupCommander('red_arm')
 blue_group.set_planning_time(10.0)
 red_group.set_planning_time(10.0)
-blue_offset_x = -0.745 + destination_x_offset
+blue_offset_x = -0.745
 
 
 map_pub = rospy.Publisher('/map_blood', MarkerArray, queue_size = 100)
 
-insert_box(0+blue_offset_x, 0, 0.4, 4.0, 1.0, 0.01, scene, "ceiling", robot.get_planning_frame())
-insert_box(0+blue_offset_x, 0, -0.96, 4.0, 1.0, 0.01, scene, "floor", robot.get_planning_frame())
+#insert_box(0+blue_offset_x, 0, -0.4, 4.0, 1.0, 0.01, scene, "ceiling", robot.get_planning_frame())
+#insert_box(0+blue_offset_x, 0, 1.4, 4.0, 0.9, 0.01, scene, "floor", robot.get_planning_frame())
 #insert_box(1.3+blue_offset_x, -0.35, -0.6, 0.2, 0.2, 1.0, scene, "path_obstacle", robot.get_planning_frame())
-insert_box(0.25+blue_offset_x, 0.75, -0.7, 0.4, 0.25, 0.6, scene, "surgeon_body", robot.get_planning_frame())
-insert_box(0.25+blue_offset_x, 0.75, -0.3, 0.2, 0.15, 0.2, scene, "surgeon_head", robot.get_planning_frame())
-insert_box(blue_offset_x, 0.6, -0.6, 0.15, 0.4, 0.15, scene, "surgeon_left_arm", robot.get_planning_frame())
-insert_box(0.5+blue_offset_x, 0.6, -0.6, 0.15, 0.4, 0.15, scene, "surgeon_right_arm", robot.get_planning_frame())
+insert_box(0.7+blue_offset_x, 0.85, 1.2, 0.4, 0.25, 0.6, scene, "surgeon_body", robot.get_planning_frame())
+insert_box(0.7+blue_offset_x, 0.85, 0.8, 0.2, 0.15, 0.2, scene, "surgeon_head", robot.get_planning_frame())
+insert_box(0.45+blue_offset_x, 0.7, 1.1, 0.15, 0.4, 0.15, scene, "surgeon_left_arm", robot.get_planning_frame())
+insert_box(0.95+blue_offset_x, 0.7, 1.1, 0.15, 0.4, 0.15, scene, "surgeon_right_arm", robot.get_planning_frame())
 #insert_box(0, 0, 0.2, 0.025, 0.025, 0.2, scene, "dab", blue_group.get_end_effector_link())
-insert_mesh(location_dab[0]+blue_offset_x, location_dab[1], location_dab[2]-0.2, 0.25, 0.25, 0.25, scene, "dab_mesh",
+insert_mesh(location_dab[0]+blue_offset_x, location_dab[1], location_dab[2], 0.25, 0.25, -0.25, scene, "dab_mesh",
             robot.get_planning_frame(), './src/surgical_dabber/src/Dataset/Processed/dab.stl')
 rospy.sleep(1)
 
@@ -298,18 +319,18 @@ loop_counter = 0
 while not rospy.is_shutdown():
 
     if loop_counter == 0:
-        _,__ = plan_and_move(location_dab, blue_group, plan_path, 'idle_to_dab', 20, active_joints, blue_offset_x)
+        _,__ = plan_and_move(joints_dab, blue_group, plan_path, 'idle_to_dab', 20, active_joints, 0)
     else:
-        _,__ = plan_and_move(location_dab, blue_group, plan_path, 'disposal_to_dab', 10, active_joints, blue_offset_x)
+        _,__ = plan_and_move(joints_dab, blue_group, plan_path, 'disposal_to_dab', 10, active_joints, 0)
 
     scene.attach_mesh(blue_group.get_end_effector_link(), "dab_mesh", touch_links=touch_links)
 
-    _,__ = plan_and_move(location_idle, blue_group, plan_path, 'dab_to_idle', 10, active_joints, blue_offset_x)
+    _,__ = plan_and_move(init_joint_state, blue_group, plan_path, 'dab_to_idle', 10, active_joints, 0)
 
     input_pcd = int(raw_input("Point cloud index (1-3 int):"))
     input_predict_num = int(raw_input("Predicted image number (1-200 int):"))
 
-    destination_marker = create_mesh_marker(blue_offset_x, 0.0, -0.9, 0.5, 0.5, 1.0,
+    destination_marker = create_mesh_marker(blue_offset_x+destination_x_offset, 0.0, 1.39, 0.33, 0.33, -11.0,
         robot.get_planning_frame(), 'package://surgical_dabber/src/Dataset/Processed/body_'+str(input_pcd)+'.dae')
     map_pub.publish(destination_marker)
     rospy.sleep(0.01)
@@ -320,20 +341,22 @@ while not rospy.is_shutdown():
     dabbing_goal = extract_optimal_goal(before_path, after_path, input_predict_num, image_size_cols, 
         image_size_rows, im_path, params_path, ros_path, bool_display_final_contour)
 
-    cleaning_goal, cleaning_plan = plan_and_move(dabbing_goal, blue_group, plan_path, None, 10, active_joints, blue_offset_x)
+    cleaning_goal, cleaning_plan = plan_and_move(dabbing_goal, blue_group, plan_path, None, 20, active_joints, blue_offset_x+destination_x_offset)
     cleaning_plan[1].joint_trajectory.points.reverse()
     
     has_reached = check_if_goal_reached(cleaning_goal, blue_group, 0.01)
 
     rospy.sleep(2.0)
 
-    _,__ = plan_and_move(location_idle, blue_group, plan_path, None, 10, active_joints, blue_offset_x, cleaning_plan[1])
+    #This has no backup trajectory, reverse plan is used, however, it is not functional at the moment
+    #_,__ = plan_and_move(init_joint_state, blue_group, plan_path, None, 10, active_joints, blue_offset_x, cleaning_plan[1])
+    _,__ = plan_and_move(init_joint_state, blue_group, plan_path, None, 10, active_joints, 0)
 
-    _,__ = plan_and_move(location_disposal, blue_group, plan_path, 'idle_to_disposal', 10, active_joints, blue_offset_x)
+    _,__ = plan_and_move(joints_disposal, blue_group, plan_path, 'idle_to_disposal', 10, active_joints, 0)
     
     scene.remove_attached_object(blue_group.get_end_effector_link(), "dab_mesh")
     scene.remove_world_object("dab_mesh")
-    insert_mesh(location_dab[0]+blue_offset_x, location_dab[1], location_dab[2]-0.2, 0.25, 0.25, 0.25, scene, "dab_mesh",
+    insert_mesh(location_dab[0]+blue_offset_x, location_dab[1], location_dab[2], 0.25, 0.25, -0.25, scene, "dab_mesh",
                 robot.get_planning_frame(), './src/surgical_dabber/src/Dataset/Processed/dab.stl')
     rospy.sleep(0.1)
 
