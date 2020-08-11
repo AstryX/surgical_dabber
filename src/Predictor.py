@@ -153,7 +153,8 @@ def decompressPredictedNeighbourhoods(pred_labels, image_size_rows, image_size_c
             labels_idx += 1 
     return reconstructed_labels
     
-def predictImageLabels(params_path, pred_image, im_path, base_path):
+def predictImageLabels(params_path, pred_image, im_path, base_path, clf=None, 
+    dim_red_model=None, scaler=None):
     #Default parameter values
     image_size_rows = 250
     image_size_cols = 330
@@ -178,7 +179,9 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
     pixel_neighbourhood_size = 3
     neighbourhood_step = math.floor(pixel_neighbourhood_size / 2)
     im_path = im_path
-    predict_num = pred_image
+    predict_num = 198
+    if isinstance(pred_image, (int, long)):
+        predict_num = pred_image
     classifier_name = base_path+"blood_classifier.joblib"
     pca_name = base_path+"pca.joblib"
     scaler_name = base_path+"scaler.joblib"
@@ -235,9 +238,23 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
     if bool_add_neighbourhoods == True:
         dim_red_features = dim_red_features_neighbour   
 
+    full_image = None
+    mask_image = None
+    hsv_array = None
+    mask_labels = None
     time_preprocessing = time.time()
     time_preprocessing_total = time_preprocessing
-    full_image, mask_image, hsv_array = readImagesAndMasks(im_path, predict_num, True)
+    if isinstance(pred_image, (int, long)):
+        full_image, mask_image, hsv_array = readImagesAndMasks(im_path, predict_num, True)
+    else:
+        full_image_t = pred_image
+        hsv_array_t = cv2.cvtColor(full_image_t, cv2.COLOR_RGB2HSV)
+        full_image = []
+        hsv_array = []
+        full_image.append(full_image_t)
+        hsv_array.append(hsv_array_t)
+        full_image = np.array((full_image))
+        hsv_array = np.array((hsv_array))
     print('Image Reading Time Taken:' + str(time.time()-time_preprocessing) + ' seconds.')
     time_preprocessing = time.time()
     singular_features = extractColourFeatures(full_image, hsv_array, hsv_wrap_amount)
@@ -249,16 +266,18 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
         image_size_rows, image_size_cols, neighbourhood_step, hsv_v_tolerance)
     print('Neighbourhood Extraction Time Taken:' + str(time.time()-time_preprocessing) + ' seconds.')
     time_preprocessing = time.time()
-    dummy_inclusion_mask = np.ones(len(inclusion_mask))
-    mask_labels, _, _, _, _ = extractMaskLabels(mask_image, pred_features, dummy_inclusion_mask)
-    mask_image = mask_image[0]
-    print('Mask Extraction Time Taken:' + str(time.time()-time_preprocessing) + ' seconds.')
-    print('Total Preprocessing Time Taken:' + str(time.time()-time_preprocessing_total) + ' seconds.')
-
-
-    clf = load(classifier_name) 
-    dim_red_model = load(pca_name)
-    scaler = load(scaler_name)
+    if mask_image is not None:
+        dummy_inclusion_mask = np.ones(len(inclusion_mask))
+        mask_labels, _, _, _, _ = extractMaskLabels(mask_image, pred_features, dummy_inclusion_mask)
+        print('Mask Extraction Time Taken:' + str(time.time()-time_preprocessing) + ' seconds.')
+        print('Total Preprocessing Time Taken:' + str(time.time()-time_preprocessing_total) + ' seconds.')
+    
+    if clf is None:
+        clf = load(classifier_name) 
+    if dim_red_model is None:
+        dim_red_model = load(pca_name)
+    if scaler is None:
+        scaler = load(scaler_name)
 
     print('Predicting pixel labels for the selected image...')
     if bool_should_normalize == True:
@@ -292,11 +311,12 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
     
     smoothing_kernel = np.ones((5, 5), np.uint8)
     pred_image = cv2.cvtColor(full_image, cv2.COLOR_RGB2BGR)
-    inverted_mask = cv2.bitwise_not(mask_image)
+    if mask_image is not None:
+        inverted_mask = cv2.bitwise_not(mask_image)
     
-    if bool_display_all_contours == True:
-        _, _ = computeAndDisplayContours('Finding contours of the ground-truth blood labels', 
-            inverted_mask, pred_image, bool_remove_small_pools, bool_display_all_contours, pool_area_threshold)
+        if bool_display_all_contours == True:
+            _, _ = computeAndDisplayContours('Finding contours of the ground-truth blood labels', 
+                inverted_mask, pred_image, bool_remove_small_pools, bool_display_all_contours, pool_area_threshold)
 
     '''print('Closing -> Opening ground-truth pixels')
     #Ground truth morphology
@@ -306,7 +326,7 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
     computeAndDisplayContours('Finding contours for morphologically changed ground-truth pixels', opening, pred_image, bool_remove_small_pools, pool_area_threshold)
     '''
 
-    predicted_mask = np.copy(inverted_mask)
+    predicted_mask = np.copy(full_image)
     predicted_mask[:,:,0] = 0
     predicted_mask[:,:,1] = 0
     predicted_mask[:,:,2] = 0
@@ -342,7 +362,8 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
     final_y_pred_image, final_contours = computeAndDisplayContours('Finding contours for morphologically changed predicted pixels', 
         opening_pred, pred_image, bool_remove_small_pools, bool_display_all_contours, pool_area_threshold)
 
-    final_y_pred_labels = np.zeros(len(mask_labels))
+    label_size = int(len(full_image) * len(full_image[0]))
+    final_y_pred_labels = np.zeros(label_size)
     track_pos = -1
     for i in range(len(final_y_pred_image)):
         for j in range(len(final_y_pred_image[i])):
@@ -351,8 +372,9 @@ def predictImageLabels(params_path, pred_image, im_path, base_path):
                 and(final_y_pred_image[i][j][2] == 255)):
                 final_y_pred_labels[track_pos] = 1
 
-    print('Confusion matrix of the prediction vs ground-truth:')
-    print(confusion_matrix(mask_labels, final_y_pred_labels))
+    if mask_labels is not None:
+        print('Confusion matrix of the prediction vs ground-truth:')
+        print(confusion_matrix(mask_labels, final_y_pred_labels))
     
     return final_y_pred_labels, final_contours, pred_image
 

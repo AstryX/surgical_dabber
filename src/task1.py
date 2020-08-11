@@ -6,7 +6,7 @@ import moveit_commander
 import moveit_msgs.msg
 import geometry_msgs.msg
 from moveit_msgs.msg import RobotState
-from sensor_msgs.msg import JointState
+from sensor_msgs.msg import JointState, Image, PointCloud2
 from std_msgs.msg import Header
 import visualization_msgs
 from visualization_msgs.msg import Marker
@@ -17,6 +17,9 @@ import pyassimp
 import json
 import math
 import time
+import cv2
+import pypcd
+from cv_bridge import CvBridge
 from Predictor import predictImageLabels, findOptimalDestination
 from Helper import loadPointCloud
 from robotiq_85_msgs.msg import GripperCmd
@@ -195,10 +198,14 @@ def pixel_to_map_coordinates(top_pool_deepest_point_id, image_size_cols, image_s
     return dabbing_goal
     
 def extract_optimal_goal(before_path, after_path, predict_num, image_size_cols, image_size_rows,
-                        im_path, params_path, ros_path, bool_display_final_contour):
-    before = loadPointCloud(before_path)
-    after = loadPointCloud(after_path)
-    print('Before and after shape after cloud loading:')
+                        im_path, params_path, ros_path, bool_display_final_contour, bool_should_simulate_goal,
+                        clf, dim_red_model, scaler):
+    before = before_path
+    after = after_path
+    if bool_should_simulate_goal is True:
+        before = loadPointCloud(before_path)
+        after = loadPointCloud(after_path)
+    print('Before and after shape after cloud retrieval:')
     print(before.shape)
     print(after.shape)
 
@@ -206,7 +213,12 @@ def extract_optimal_goal(before_path, after_path, predict_num, image_size_cols, 
     after_z = after['z']
 
     time_benchmark = time.time()
-    pred_labels, final_contours, loaded_image = predictImageLabels(params_path, predict_num, im_path, ros_path)
+    if bool_should_simulate_goal is True:
+        pred_labels, final_contours, loaded_image = predictImageLabels(params_path, predict_num, im_path, ros_path,
+            clf, dim_red_model, scaler)
+    else:
+        pred_labels, final_contours, loaded_image = predictImageLabels(params_path, predict_num, im_path, ros_path,
+            clf, dim_red_model, scaler)
     print("Run time of Image pixel prediction: " + str(time.time() - time_benchmark) + " seconds.")
     time_benchmark = time.time()
     top_pool_id, top_pool_deepest_point_id, top_pool_volume = findOptimalDestination(before_z, after_z,
@@ -258,6 +270,10 @@ destination_x_offset = 0.5
 bool_display_final_contour = True
 im_path = ros_path + "Dataset/Processed/"
 init_joint_state=[-0.20639741146209817,-0.15102010932503235,1.1829538210561723,0.5388390898820403,1.5708008621132574,1.3643624244936943]
+bool_should_simulate_goal = True
+classifier_name = ros_path+"blood_classifier.joblib"
+pca_name = ros_path+"pca.joblib"
+scaler_name = ros_path+"scaler.joblib"
 
 with open(params_path) as json_data_file:  
     data = json.load(json_data_file)
@@ -281,6 +297,18 @@ with open(params_path) as json_data_file:
         destination_x_offset = data['destination_x_offset']
     if 'init_joint_state' in data:
         init_joint_state = data['init_joint_state']
+    if 'bool_should_simulate_goal' in data:
+        bool_should_simulate_goal = data['bool_should_simulate_goal']
+    if 'classifier_name' in data:
+        classifier_name = ros_path+data['classifier_name']
+    if 'pca_name' in data:
+        pca_name = ros_path+data['pca_name']
+    if 'scaler_name' in data:
+        scaler_name = ros_path+data['scaler_name']
+        
+clf = load(classifier_name) 
+dim_red_model = load(pca_name)
+scaler = load(scaler_name)
 
 pub_gripper = rospy.Publisher('/gripper/cmd', GripperCmd, queue_size=10)
 moveit_commander.roscpp_initialize(sys.argv)
@@ -334,9 +362,14 @@ display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path
 open_gripper(pub_gripper)
 rospy.sleep(1.0)
 initialize_robot_arms(init_joint_state, blue_group, red_group)
-rospy.sleep(3)
+
+prior_pcd = None
+if bool_should_simulate_goal is False:
+    prior_pcd = rospy.wait_for_message('/camera/depth_registered/points', PointCloud2)
+    prior_pcd = pypcd.PointCloud.from_msg(pcd_data)
 
 loop_counter = 0
+bridge = CvBridge()
 while not rospy.is_shutdown():
 
     if loop_counter == 0:
@@ -346,27 +379,36 @@ while not rospy.is_shutdown():
 
     scene.attach_mesh(blue_group.get_end_effector_link(), "dab_mesh", touch_links=touch_links)
     close_gripper(pub_gripper)
+    #Wait for the gripper to close
     rospy.sleep(3.0)
 
     _,__ = plan_and_move(init_joint_state, blue_group, plan_path, 'dab_to_idle', 10, active_joints, 0)
+    rospy.sleep(1.0)
+    
+    dabbing_goal = None
+    posterior_pcd = None
+    if bool_should_simulate_goal is False:
+        posterior_pcd = rospy.wait_for_message('/camera/depth_registered/points', PointCloud2)
+        posterior_pcd = pypcd.PointCloud.from_msg(pcd_data)
+        dab_img = rospy.wait_for_message('/camera/color/image_rect_color', Image)
+        dab_img = bridge.imgmsg_to_cv2(dab_img, 'passthrough')
+        dabbing_goal = extract_optimal_goal(prior_pcd, posterior_pcd, dab_img, image_size_cols, 
+            image_size_rows, im_path, params_path, ros_path, bool_display_final_contour, bool_should_simulate_goal,
+            clf, dim_red_model, scaler)
+    else:
+        input_pcd = int(raw_input("Point cloud index (1-3 int):"))
+        input_predict_num = int(raw_input("Predicted image number (1-200 int):"))
+        destination_marker = create_mesh_marker(blue_offset_x+destination_x_offset, 0.0, 1.39, 0.33, 0.33, -11.0,
+            robot.get_planning_frame(), 'package://surgical_dabber/src/Dataset/Processed/body_'+str(input_pcd)+'.dae')
+        map_pub.publish(destination_marker)
+        rospy.sleep(0.01)
 
-    rospy.sleep(3.0)
+        before_path = im_path+'pc_mock/before_'+str(input_pcd)+'.PCD'
+        after_path = im_path+'pc_mock/after_'+str(input_pcd)+'.PCD'
 
-    quit()
-
-    input_pcd = int(raw_input("Point cloud index (1-3 int):"))
-    input_predict_num = int(raw_input("Predicted image number (1-200 int):"))
-
-    destination_marker = create_mesh_marker(blue_offset_x+destination_x_offset, 0.0, 1.39, 0.33, 0.33, -11.0,
-        robot.get_planning_frame(), 'package://surgical_dabber/src/Dataset/Processed/body_'+str(input_pcd)+'.dae')
-    map_pub.publish(destination_marker)
-    rospy.sleep(0.01)
-
-    before_path = im_path+'pc_mock/before_'+str(input_pcd)+'.PCD'
-    after_path = im_path+'pc_mock/after_'+str(input_pcd)+'.PCD'
-
-    dabbing_goal = extract_optimal_goal(before_path, after_path, input_predict_num, image_size_cols, 
-        image_size_rows, im_path, params_path, ros_path, bool_display_final_contour)
+        dabbing_goal = extract_optimal_goal(before_path, after_path, input_predict_num, image_size_cols, 
+            image_size_rows, im_path, params_path, ros_path, bool_display_final_contour, bool_should_simulate_goal,
+            clf, dim_red_model, scaler)
 
     cleaning_goal, cleaning_plan = plan_and_move(dabbing_goal, blue_group, plan_path, None, 20, active_joints, blue_offset_x+destination_x_offset)
     cleaning_plan[1].joint_trajectory.points.reverse()
