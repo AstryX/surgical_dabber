@@ -248,6 +248,8 @@ def predictImageLabels(params_path, pred_image, im_path, base_path, clf=None,
         full_image, mask_image, hsv_array = readImagesAndMasks(im_path, predict_num, True)
     else:
         full_image_t = pred_image
+        image_size_rows = len(pred_image)
+        image_size_cols = len(pred_image[0])
         hsv_array_t = cv2.cvtColor(full_image_t, cv2.COLOR_RGB2HSV)
         full_image = []
         hsv_array = []

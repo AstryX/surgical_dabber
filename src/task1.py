@@ -205,11 +205,16 @@ def extract_optimal_goal(before_path, after_path, predict_num, image_size_cols, 
     if bool_should_simulate_goal is True:
         before = loadPointCloud(before_path)
         after = loadPointCloud(after_path)
+    else:
+        before = before.pc_data
+        after = after.pc_data
     print('Before and after shape after cloud retrieval:')
     print(before.shape)
     print(after.shape)
 
     before_z = before['z']
+    print('Depth shape:')
+    print(before_z.shape)
     after_z = after['z']
 
     time_benchmark = time.time()
@@ -366,7 +371,7 @@ initialize_robot_arms(init_joint_state, blue_group, red_group)
 prior_pcd = None
 if bool_should_simulate_goal is False:
     prior_pcd = rospy.wait_for_message('/camera/depth_registered/points', PointCloud2)
-    prior_pcd = pypcd.PointCloud.from_msg(pcd_data)
+    prior_pcd = pypcd.PointCloud.from_msg(prior_pcd)
 
 loop_counter = 0
 bridge = CvBridge()
@@ -389,9 +394,13 @@ while not rospy.is_shutdown():
     posterior_pcd = None
     if bool_should_simulate_goal is False:
         posterior_pcd = rospy.wait_for_message('/camera/depth_registered/points', PointCloud2)
-        posterior_pcd = pypcd.PointCloud.from_msg(pcd_data)
+        posterior_pcd = pypcd.PointCloud.from_msg(posterior_pcd)
         dab_img = rospy.wait_for_message('/camera/color/image_rect_color', Image)
         dab_img = bridge.imgmsg_to_cv2(dab_img, 'passthrough')
+        print('Live camera image shape:')
+        print(dab_img.shape)
+        image_size_rows = len(dab_img)
+        image_size_cols = len(dab_img[0])
         dabbing_goal = extract_optimal_goal(prior_pcd, posterior_pcd, dab_img, image_size_cols, 
             image_size_rows, im_path, params_path, ros_path, bool_display_final_contour, bool_should_simulate_goal,
             clf, dim_red_model, scaler)
