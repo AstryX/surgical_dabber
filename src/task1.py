@@ -19,6 +19,7 @@ import math
 import time
 from Predictor import predictImageLabels, findOptimalDestination
 from Helper import loadPointCloud
+from robotiq_85_msgs.msg import GripperCmd
 
 def insert_box(x, y, z, scale_x, scale_y, scale_z, cur_scene, obs_name, frame_id):
     box_pose = geometry_msgs.msg.PoseStamped()
@@ -227,6 +228,23 @@ def initialize_robot_arms(init_joint_state, blue_group, red_group):
     red_group.stop()
     red_group.clear_pose_targets()'''
 
+def open_gripper(publisher):
+    move_gripper(1.0, publisher)
+
+def close_gripper(publisher):
+    move_gripper(0.0, publisher)
+
+def move_gripper(pos, publisher):
+    close_command = GripperCmd()
+    close_command.emergency_release = False
+    close_command.emergency_release_dir = 0
+    close_command.stop = False
+    close_command.position = pos
+    close_command.speed = 0.0
+    close_command.force = 0.0
+    publisher.publish(close_command)
+
+
 location_dab = [1.1, 0.3, -0.5]
 joints_dab = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 joints_disposal = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -264,6 +282,7 @@ with open(params_path) as json_data_file:
     if 'init_joint_state' in data:
         init_joint_state = data['init_joint_state']
 
+pub_gripper = rospy.Publisher('/gripper/cmd', GripperCmd, queue_size=10)
 moveit_commander.roscpp_initialize(sys.argv)
 rospy.init_node('task1', anonymous=True)
 scene = moveit_commander.PlanningSceneInterface()
@@ -312,8 +331,10 @@ print("Planning frame name: " + str(blue_group.get_planning_frame()))
 print("Endeffector link name: " + str(blue_group.get_end_effector_link()))
 display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path', moveit_msgs.msg.DisplayTrajectory, queue_size=20)
 #blue_group.pick("dab-mesh")
+open_gripper(pub_gripper)
+rospy.sleep(1.0)
 initialize_robot_arms(init_joint_state, blue_group, red_group)
-rospy.sleep(1)
+rospy.sleep(3)
 
 loop_counter = 0
 while not rospy.is_shutdown():
@@ -324,8 +345,14 @@ while not rospy.is_shutdown():
         _,__ = plan_and_move(joints_dab, blue_group, plan_path, 'disposal_to_dab', 10, active_joints, 0)
 
     scene.attach_mesh(blue_group.get_end_effector_link(), "dab_mesh", touch_links=touch_links)
+    close_gripper(pub_gripper)
+    rospy.sleep(3.0)
 
     _,__ = plan_and_move(init_joint_state, blue_group, plan_path, 'dab_to_idle', 10, active_joints, 0)
+
+    rospy.sleep(3.0)
+
+    quit()
 
     input_pcd = int(raw_input("Point cloud index (1-3 int):"))
     input_predict_num = int(raw_input("Predicted image number (1-200 int):"))
