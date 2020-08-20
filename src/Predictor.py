@@ -273,6 +273,7 @@ def predictImageLabels(params_path, pred_image, im_path, base_path, clf=None,
         mask_labels, _, _, _, _ = extractMaskLabels(mask_image, pred_features, dummy_inclusion_mask)
         print('Mask Extraction Time Taken:' + str(time.time()-time_preprocessing) + ' seconds.')
         print('Total Preprocessing Time Taken:' + str(time.time()-time_preprocessing_total) + ' seconds.')
+        mask_image = mask_image[0]
     
     if clf is None:
         clf = load(classifier_name) 
@@ -298,6 +299,10 @@ def predictImageLabels(params_path, pred_image, im_path, base_path, clf=None,
     else:
         pred_labels = clf.predict(pred_features)
     print('Total Prediction Time Taken:' + str(time.time()-time_prediction) + ' seconds.')
+
+    if mask_labels is not None:
+        print('Confusion matrix of the prediction vs ground-truth:')
+        print(confusion_matrix(mask_labels, pred_labels))
         
     if ((bool_should_normalize == True) and (bool_do_normalization_display == True)):
         displayNormalization(pred_features, image_size_rows, image_size_cols, full_image)
@@ -375,7 +380,7 @@ def predictImageLabels(params_path, pred_image, im_path, base_path, clf=None,
                 final_y_pred_labels[track_pos] = 1
 
     if mask_labels is not None:
-        print('Confusion matrix of the prediction vs ground-truth:')
+        print('Confusion matrix of the modified prediction vs ground-truth:')
         print(confusion_matrix(mask_labels, final_y_pred_labels))
     
     return final_y_pred_labels, final_contours, pred_image

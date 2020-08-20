@@ -22,14 +22,16 @@
     "bool_do_pca_experiment":false,
     "bool_do_pca_separately":false,
     "bool_do_normalization_display":false,
-    "bool_display_all_contours":true,
+    "bool_display_all_contours":false,
     "bool_remove_small_pools":true,
-    "bool_display_final_contour":true,
+    "bool_display_final_contour":false,
     "bool_compress_predicted_pixels":false,
-    "bool_should_simulate_goal":false,
+    "bool_should_simulate_goal":true,
 
     "location_dab":[0.37,-0.445,1.22],
+    "dabbing_goal_test":[-0.3679,0.0367,0.945894],
     "joints_dab":[-1.1886,-1.7073,1.3124,-1.2104,1.5275,-0.4186],
+    "joints_dab_pickup":[-1.1913,-1.7066,1.4022,-1.311,1.5275,-0.4185],
     "joints_disposal":[-1.791,-1.8945,1.4523,-1.1339,1.5756,0.171],
     "init_joint_state":[-0.8503,-2.1689,1.9641,-1.3855,1.5248,-0.7529],
     "destination_x_offset":0.3,
@@ -39,4 +41,4 @@
     "classifier_name":"blood_classifier.joblib",
     "pca_name":"pca.joblib",
     "scaler_name":"scaler.joblib",
-    "predict_num":197}
+    "predict_num":198}

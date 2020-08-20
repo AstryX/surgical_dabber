@@ -19,6 +19,10 @@ import math
 import time
 import cv2
 import pypcd
+import tf2_ros
+import tf2_py as tf2
+import numpy as np
+from tf2_sensor_msgs.tf2_sensor_msgs import do_transform_cloud
 from cv_bridge import CvBridge
 from Predictor import predictImageLabels, findOptimalDestination
 from Helper import loadPointCloud
@@ -150,8 +154,8 @@ def plan_and_move(location_array, blue_group, ros_path, backup_plan, num_tries, 
         else:
             plan, plan_pose = plan_to_goal_joints(location_array, blue_group, num_tries, combined_path)
         #Saving plans code:
-        if (plan is not None) and (backup_plan is not None):
-            dump(plan, backup_plan)
+        #if (plan is not None) and (backup_plan is not None):
+        #    dump(plan, backup_plan)
         blue_group.execute(plan[1], wait=True)
     else:
         print('Executing precomputed safe plan!')
@@ -160,6 +164,15 @@ def plan_and_move(location_array, blue_group, ros_path, backup_plan, num_tries, 
     blue_group.clear_pose_targets()
 
     return plan_pose, plan
+
+def cloud_to_map_coordinates(top_pool_deepest_point_id, before):
+    optimal_point = before[top_pool_deepest_point_id]
+    print('Robot goal coordinates:')
+    print('Goal x: ' + str(optimal_point['x']))
+    print('Goal y: ' + str(optimal_point['y']))
+    print('Goal z: ' + str(optimal_point['z']))
+    dabbing_goal = [float(optimal_point['x']), float(optimal_point['y']), float(optimal_point['z'])]
+    return dabbing_goal
 
 def pixel_to_map_coordinates(top_pool_deepest_point_id, image_size_cols, image_size_rows):
     max_range_x = 0.33
@@ -229,16 +242,19 @@ def extract_optimal_goal(before_path, after_path, predict_num, image_size_cols, 
     top_pool_id, top_pool_deepest_point_id, top_pool_volume = findOptimalDestination(before_z, after_z,
         image_size_rows, image_size_cols, pred_labels, final_contours, loaded_image, bool_display_final_contour)
     print("Run time of Optimal Dab Destination computation: " + str(time.time() - time_benchmark) + " seconds.")
-    
-    return pixel_to_map_coordinates(top_pool_deepest_point_id, image_size_cols, image_size_rows)
 
-def initialize_robot_arms(init_joint_state, blue_group, red_group):
-    reset_start_state(blue_group, blue_group.get_active_joints())
-    reset_start_state(red_group, red_group.get_active_joints())
+    res = None
+    if bool_should_simulate_goal is True:
+        res = pixel_to_map_coordinates(top_pool_deepest_point_id, image_size_cols, image_size_rows)
+    else:
+        res = cloud_to_map_coordinates(top_pool_deepest_point_id, before)
+    return res
 
-    blue_group.go(init_joint_state, wait=True)
-    blue_group.stop()
-    blue_group.clear_pose_targets()
+def initialize_robot_arms(init_joint_state, blue_group, red_group, pub_gripper):
+    #reset_start_state(red_group, red_group.get_active_joints())
+    open_gripper(pub_gripper)
+    rospy.sleep(1.0)
+    _,__ = plan_and_move(init_joint_state, blue_group, None, None, 10, blue_group.get_active_joints(), 0)
 
     #Catastrophic failure bug, ignore initializing red for now
     '''red_group.go(init_joint_state, wait=True)
@@ -263,8 +279,9 @@ def move_gripper(pos, publisher):
 
 
 location_dab = [1.1, 0.3, -0.5]
-joints_dab = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-joints_disposal = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+joints_dab = [-1.1886,-1.7073,1.3124,-1.2104,1.5275,-0.4186]
+joints_disposal = [-1.791,-1.8945,1.4523,-1.1339,1.5756,0.171]
+joints_dab_pickup = [-1.1913,-1.7066,1.4022,-1.311,1.5275,-0.4185]
 ros_path = "./src/surgical_dabber/src/"
 plan_path = ros_path + 'Plans/'
 params_path = ros_path+"params.json"
@@ -279,6 +296,7 @@ bool_should_simulate_goal = True
 classifier_name = ros_path+"blood_classifier.joblib"
 pca_name = ros_path+"pca.joblib"
 scaler_name = ros_path+"scaler.joblib"
+dabbing_goal_test = []
 
 with open(params_path) as json_data_file:  
     data = json.load(json_data_file)
@@ -310,6 +328,10 @@ with open(params_path) as json_data_file:
         pca_name = ros_path+data['pca_name']
     if 'scaler_name' in data:
         scaler_name = ros_path+data['scaler_name']
+    if 'joints_dab_pickup' in data:
+        joints_dab_pickup = data['joints_dab_pickup']
+    if 'dabbing_goal_test' in data:
+	dabbing_goal_test = data['dabbing_goal_test']
         
 clf = load(classifier_name) 
 dim_red_model = load(pca_name)
@@ -320,6 +342,8 @@ moveit_commander.roscpp_initialize(sys.argv)
 rospy.init_node('task1', anonymous=True)
 scene = moveit_commander.PlanningSceneInterface()
 robot = moveit_commander.RobotCommander()
+tf_buffer = tf2_ros.Buffer()
+tf_listener = tf2_ros.TransformListener(tf_buffer)
 
 print("Robot group frames list:")
 print(robot.get_group_names())
@@ -364,19 +388,33 @@ print("Planning frame name: " + str(blue_group.get_planning_frame()))
 print("Endeffector link name: " + str(blue_group.get_end_effector_link()))
 display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path', moveit_msgs.msg.DisplayTrajectory, queue_size=20)
 #blue_group.pick("dab-mesh")
-open_gripper(pub_gripper)
-rospy.sleep(1.0)
-initialize_robot_arms(init_joint_state, blue_group, red_group)
+initialize_robot_arms(init_joint_state, blue_group, red_group, pub_gripper)
+raw_input("Press Any Key to continue...")
 
 prior_pcd = None
+prior_depth = None
+bridge = CvBridge()
 if bool_should_simulate_goal is False:
     prior_pcd = rospy.wait_for_message('/camera/depth_registered/points', PointCloud2)
+    trans_init = tf_buffer.lookup_transform(blue_group.get_planning_frame(), prior_pcd.header.frame_id,
+                                            rospy.Time(0), rospy.Duration(1.0))
+    rospy.sleep(1.0)
+    prior_pcd = do_transform_cloud(prior_pcd, trans_init)
     prior_pcd = pypcd.PointCloud.from_msg(prior_pcd)
+    prior_depth = rospy.wait_for_message('/camera/depth/image_rect_raw', Image)
+    prior_depth = bridge.imgmsg_to_cv2(prior_depth, "32FC1")
+
+    prior_depth = np.array(prior_depth, dtype = np.dtype('f8'))
+    prior_depth = cv2.normalize(prior_depth, prior_depth, 0, 1, cv2.NORM_MINMAX)
+
+    cv2.imshow('Prior depth map', prior_depth)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 loop_counter = 0
-bridge = CvBridge()
+time_loop = 0
 while not rospy.is_shutdown():
-
+    time_loop = time.time()
     if loop_counter == 0:
         _,__ = plan_and_move(joints_dab, blue_group, plan_path, 'idle_to_dab', 20, active_joints, 0)
     else:
@@ -386,17 +424,33 @@ while not rospy.is_shutdown():
     close_gripper(pub_gripper)
     #Wait for the gripper to close
     rospy.sleep(3.0)
+    raw_input("Press Any Key to continue...")
 
-    _,__ = plan_and_move(init_joint_state, blue_group, plan_path, 'dab_to_idle', 10, active_joints, 0)
+    _,__ = plan_and_move(joints_dab_pickup, blue_group, plan_path, 'dab_to_dab_pickup', 10, active_joints, 0)
+    _,__ = plan_and_move(init_joint_state, blue_group, plan_path, 'dab_pickup_to_idle', 10, active_joints, 0)
     rospy.sleep(1.0)
     
     dabbing_goal = None
     posterior_pcd = None
+    cleaning_goal = None
+    cleaning_plan = None
     if bool_should_simulate_goal is False:
         posterior_pcd = rospy.wait_for_message('/camera/depth_registered/points', PointCloud2)
+        trans_out = tf_buffer.lookup_transform(blue_group.get_planning_frame(), posterior_pcd.header.frame_id,
+                                               rospy.Time(0), rospy.Duration(1.0))
+	post_depth = rospy.wait_for_message('/camera/depth/image_rect_raw', Image)
+        rospy.sleep(1.0)
+        posterior_pcd = do_transform_cloud(posterior_pcd, trans_out)
         posterior_pcd = pypcd.PointCloud.from_msg(posterior_pcd)
         dab_img = rospy.wait_for_message('/camera/color/image_rect_color', Image)
         dab_img = bridge.imgmsg_to_cv2(dab_img, 'passthrough')
+        post_depth = bridge.imgmsg_to_cv2(post_depth, '32FC1')
+
+        post_depth = np.array(post_depth, dtype = np.dtype('f8'))
+        post_depth = cv2.normalize(post_depth, post_depth, 0, 1, cv2.NORM_MINMAX)
+        cv2.imshow('Posterior depth map', post_depth)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
         print('Live camera image shape:')
         print(dab_img.shape)
         image_size_rows = len(dab_img)
@@ -404,6 +458,11 @@ while not rospy.is_shutdown():
         dabbing_goal = extract_optimal_goal(prior_pcd, posterior_pcd, dab_img, image_size_cols, 
             image_size_rows, im_path, params_path, ros_path, bool_display_final_contour, bool_should_simulate_goal,
             clf, dim_red_model, scaler)
+        print('Final dabbing goal:')
+        dabbing_goal[2] = dabbing_goal[2]-0.31
+        print(dabbing_goal)
+	raw_input("Press Any Key to continue...")
+	cleaning_goal, cleaning_plan = plan_and_move(dabbing_goal, blue_group, plan_path, None, 20, 		    active_joints, 0)
     else:
         input_pcd = int(raw_input("Point cloud index (1-3 int):"))
         input_predict_num = int(raw_input("Predicted image number (1-200 int):"))
@@ -418,13 +477,16 @@ while not rospy.is_shutdown():
         dabbing_goal = extract_optimal_goal(before_path, after_path, input_predict_num, image_size_cols, 
             image_size_rows, im_path, params_path, ros_path, bool_display_final_contour, bool_should_simulate_goal,
             clf, dim_red_model, scaler)
+	cleaning_goal, cleaning_plan = plan_and_move(dabbing_goal, blue_group, plan_path, None, 20, 		    active_joints, blue_offset_x+destination_x_offset)
+	
 
-    cleaning_goal, cleaning_plan = plan_and_move(dabbing_goal, blue_group, plan_path, None, 20, active_joints, blue_offset_x+destination_x_offset)
+    
     cleaning_plan[1].joint_trajectory.points.reverse()
     
     has_reached = check_if_goal_reached(cleaning_goal, blue_group, 0.01)
 
     rospy.sleep(2.0)
+    raw_input("Press Any Key to continue...")
 
     #This has no backup trajectory, reverse plan is used, however, it is not functional at the moment
     #_,__ = plan_and_move(init_joint_state, blue_group, plan_path, None, 10, active_joints, blue_offset_x, cleaning_plan[1])
@@ -439,6 +501,8 @@ while not rospy.is_shutdown():
     rospy.sleep(0.1)
 
     loop_counter += 1
+
+    print('Whole loop time taken: ' + str(time_loop-time.time()))
 
 #dump(plan_4, "idle_to_body")
 
