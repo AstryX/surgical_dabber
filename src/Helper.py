@@ -50,6 +50,7 @@ def extractColourFeatures(im_array, hsv_array, hsv_wrap_amount):
     image_features = im_array.astype(float)
     image_features = np.divide(image_features, np_sum)
     image_features = np.concatenate((hsv_array, image_features), axis=3)
+    image_features[:,:,:,0] = (image_features[:,:,:,0] + 90) % 180
     
     '''for it in im_array:
         temp_image_features = []
